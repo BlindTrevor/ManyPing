@@ -1213,7 +1213,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                             display: false
                         },
                         tooltip: {
-                            enabled: false
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 8,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + 'ms';
+                                }
+                            }
                         }
                     },
                     scales: {
