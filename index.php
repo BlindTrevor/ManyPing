@@ -11,36 +11,50 @@
             box-sizing: border-box;
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0e1a;
+            background-image: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 217, 255, 0.03) 2px, rgba(0, 217, 255, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 217, 255, 0.03) 2px, rgba(0, 217, 255, 0.03) 4px);
             min-height: 100vh;
             padding: 20px;
+            color: #e4e7eb;
         }
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: linear-gradient(135deg, #1a1f2e 0%, #151923 100%);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 217, 255, 0.3);
             padding: 30px;
+            border: 1px solid rgba(0, 217, 255, 0.1);
         }
         h1 {
-            color: #333;
+            color: #ffffff;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .logo {
+            width: 40px;
+            height: 40px;
         }
         .subtitle {
-            color: #666;
+            color: #8b92a7;
             margin-bottom: 30px;
             font-size: 14px;
+            font-weight: 500;
         }
         .input-section {
-            background: #f8f9fa;
+            background: rgba(14, 18, 28, 0.6);
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
+            border: 1px solid rgba(0, 217, 255, 0.1);
         }
         .form-group {
             margin-bottom: 15px;
@@ -49,26 +63,36 @@
             display: block;
             font-weight: 600;
             margin-bottom: 5px;
-            color: #333;
+            color: #e4e7eb;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         textarea {
             width: 100%;
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-family: monospace;
+            padding: 12px;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
             font-size: 13px;
             resize: vertical;
             min-height: 150px;
+            background: rgba(10, 14, 26, 0.8);
+            color: #00ff88;
         }
         textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00d9ff;
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+        textarea::placeholder {
+            color: #4a5568;
         }
         .help-text {
-            font-size: 12px;
-            color: #666;
+            font-size: 11px;
+            color: #6b7280;
             margin-top: 5px;
+            font-family: monospace;
         }
         .button-group {
             display: flex;
@@ -78,34 +102,37 @@
         button {
             padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .btn-primary {
-            background: #667eea;
-            color: white;
+            background: linear-gradient(135deg, #00d9ff 0%, #0099cc 100%);
+            color: #0a0e1a;
+            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
         }
         .btn-primary:hover {
-            background: #5568d3;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4);
         }
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: rgba(75, 85, 99, 0.8);
+            color: #e4e7eb;
+            border: 1px solid rgba(156, 163, 175, 0.3);
         }
         .btn-secondary:hover {
-            background: #5a6268;
+            background: rgba(107, 114, 128, 0.9);
         }
         .btn-danger {
-            background: #dc3545;
+            background: rgba(239, 68, 68, 0.8);
             color: white;
         }
         .btn-danger:hover {
-            background: #c82333;
+            background: rgba(220, 38, 38, 0.9);
         }
         .scan-mode {
             display: flex;
@@ -115,9 +142,12 @@
         .scan-mode label {
             margin-bottom: 0;
             font-weight: normal;
+            text-transform: none;
+            color: #9ca3af;
         }
         .scan-mode input[type="radio"] {
             margin-right: 5px;
+            accent-color: #00d9ff;
         }
         .results-section {
             margin-top: 30px;
@@ -129,32 +159,57 @@
             margin-top: 20px;
         }
         .status-card {
-            background: white;
-            border: 2px solid #e0e0e0;
+            background: linear-gradient(135deg, rgba(26, 31, 46, 0.8) 0%, rgba(21, 25, 35, 0.9) 100%);
+            border: 1px solid rgba(75, 85, 99, 0.3);
             border-radius: 8px;
-            padding: 15px;
+            padding: 16px;
             transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .status-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.5), transparent);
         }
         .status-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 24px rgba(0, 217, 255, 0.2);
             transform: translateY(-2px);
+            border-color: rgba(0, 217, 255, 0.5);
         }
         .status-card.online {
-            border-color: #28a745;
-            background: #f0fdf4;
+            border-color: rgba(0, 255, 136, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+        }
+        .status-card.online::before {
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.6), transparent);
         }
         .status-card.offline {
-            border-color: #dc3545;
-            background: #fef2f2;
+            border-color: rgba(255, 51, 102, 0.4);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.1);
+        }
+        .status-card.offline::before {
+            background: linear-gradient(90deg, transparent, rgba(255, 51, 102, 0.6), transparent);
         }
         .status-card.scanning {
-            border-color: #667eea;
-            background: #e8eeff;
+            border-color: rgba(0, 217, 255, 0.4);
             animation: pulse 2s ease-in-out infinite;
+        }
+        .status-card.scanning::before {
+            background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.8), transparent);
+            animation: scan-line 2s linear infinite;
         }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+        @keyframes scan-line {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
         .status-header {
             display: flex;
@@ -167,42 +222,49 @@
         }
         .ip-address {
             font-weight: 600;
-            color: #333;
-            font-family: monospace;
+            color: #00d9ff;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
         }
         .friendly-name {
-            color: #666;
-            font-size: 14px;
+            color: #9ca3af;
+            font-size: 13px;
             margin-bottom: 5px;
+            font-weight: 500;
         }
         .status-info {
-            font-size: 13px;
-            color: #666;
+            font-size: 12px;
+            color: #8b92a7;
             margin-top: 5px;
+            font-family: monospace;
         }
         .response-time {
             font-weight: 600;
-            color: #667eea;
+            color: #00ff88;
         }
         .timestamp {
-            font-size: 11px;
-            color: #999;
+            font-size: 10px;
+            color: #6b7280;
+            font-family: monospace;
         }
         .tile-countdown {
-            font-size: 11px;
-            color: #667eea;
+            font-size: 10px;
+            color: #00d9ff;
             margin-top: 5px;
-            padding: 3px 6px;
-            background: rgba(102, 126, 234, 0.1);
+            padding: 4px 8px;
+            background: rgba(0, 217, 255, 0.1);
             border-radius: 3px;
             display: inline-block;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            font-family: monospace;
         }
         .mini-chart-container {
             margin-top: 10px;
             height: 60px;
-            background: rgba(102, 126, 234, 0.05);
+            background: rgba(0, 217, 255, 0.05);
             border-radius: 5px;
             padding: 5px;
+            border: 1px solid rgba(0, 217, 255, 0.1);
         }
         .mini-chart-canvas {
             width: 100% !important;
@@ -210,10 +272,11 @@
         }
         .chart-container {
             margin-top: 30px;
-            background: #f8f9fa;
+            background: rgba(14, 18, 28, 0.6);
             padding: 20px;
             border-radius: 8px;
-            display: none; /* Hide the main chart */
+            display: none;
+            border: 1px solid rgba(0, 217, 255, 0.1);
         }
         canvas {
             max-height: 400px;
@@ -221,19 +284,20 @@
         .countdown-timer {
             text-align: center;
             padding: 20px;
-            color: #667eea;
+            color: #00d9ff;
             font-size: 18px;
             font-weight: 600;
-            display: none; /* Hide global countdown, using per-tile instead */
+            display: none;
+            font-family: monospace;
         }
         .loading {
             text-align: center;
             padding: 20px;
-            color: #666;
+            color: #8b92a7;
         }
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 3px solid rgba(75, 85, 99, 0.3);
+            border-top: 3px solid #00d9ff;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -245,34 +309,39 @@
             100% { transform: rotate(360deg); }
         }
         .rate-limit-info {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            padding: 10px;
-            border-radius: 5px;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            padding: 12px;
+            border-radius: 6px;
             margin-bottom: 15px;
-            font-size: 13px;
+            font-size: 12px;
+            color: #fbbf24;
         }
         .stats-bar {
             display: flex;
             gap: 20px;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 5px;
+            padding: 20px;
+            background: rgba(14, 18, 28, 0.6);
+            border-radius: 8px;
             margin-bottom: 20px;
+            border: 1px solid rgba(0, 217, 255, 0.1);
         }
         .stat-item {
             flex: 1;
             text-align: center;
         }
         .stat-value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
-            color: #333;
+            color: #00d9ff;
+            font-family: monospace;
         }
         .stat-label {
-            font-size: 12px;
-            color: #666;
+            font-size: 11px;
+            color: #6b7280;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 5px;
         }
         .interval-control {
             display: flex;
@@ -282,15 +351,53 @@
         .interval-control input {
             width: 80px;
             padding: 8px;
-            border: 2px solid #ddd;
+            border: 1px solid rgba(0, 217, 255, 0.2);
             border-radius: 5px;
+            background: rgba(10, 14, 26, 0.8);
+            color: #00ff88;
+            font-family: monospace;
+        }
+        .interval-control input:focus {
+            outline: none;
+            border-color: #00d9ff;
+        }
+        input[type="number"] {
+            background: rgba(10, 14, 26, 0.8);
+            color: #00ff88;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 5px;
+            padding: 8px;
+            font-family: monospace;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #00d9ff;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>
-            <span>📡</span> ManyPing
+            <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Network nodes -->
+                <circle cx="50" cy="50" r="8" fill="#00d9ff"/>
+                <circle cx="25" cy="25" r="6" fill="#00ff88"/>
+                <circle cx="75" cy="25" r="6" fill="#00ff88"/>
+                <circle cx="25" cy="75" r="6" fill="#00ff88"/>
+                <circle cx="75" cy="75" r="6" fill="#00ff88"/>
+                
+                <!-- Connection lines -->
+                <line x1="50" y1="50" x2="25" y2="25" stroke="#00d9ff" stroke-width="2" opacity="0.6"/>
+                <line x1="50" y1="50" x2="75" y2="25" stroke="#00d9ff" stroke-width="2" opacity="0.6"/>
+                <line x1="50" y1="50" x2="25" y2="75" stroke="#00d9ff" stroke-width="2" opacity="0.6"/>
+                <line x1="50" y1="50" x2="75" y2="75" stroke="#00d9ff" stroke-width="2" opacity="0.6"/>
+                
+                <!-- Ping waves (animated in concept) -->
+                <circle cx="50" cy="50" r="20" stroke="#00d9ff" stroke-width="1.5" fill="none" opacity="0.4"/>
+                <circle cx="50" cy="50" r="30" stroke="#00d9ff" stroke-width="1" fill="none" opacity="0.2"/>
+                <circle cx="50" cy="50" r="40" stroke="#00d9ff" stroke-width="0.5" fill="none" opacity="0.1"/>
+            </svg>
+            ManyPing
         </h1>
         <p class="subtitle">Concurrent IP Monitoring Tool - Ping multiple IPs simultaneously</p>
         
