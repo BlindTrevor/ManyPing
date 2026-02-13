@@ -977,7 +977,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             }
             
             displayScanningTiles(ips);
-            document.getElementById('loadingIndicator').style.display = 'block';
 
             try {
                 const response = await fetch('ping.php', {
@@ -1028,8 +1027,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 if (!scanInterval) {
                     setScanningState(false);
                 }
-            } finally {
-                document.getElementById('loadingIndicator').style.display = 'none';
             }
         }
 
