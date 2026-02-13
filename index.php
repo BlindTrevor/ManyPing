@@ -330,6 +330,25 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         <span>seconds</span>
                     </div>
                 </div>
+                
+                <div id="repeatOptions" style="display:none; margin-top:10px;">
+                    <label style="font-size: 14px; font-weight: normal;">Number of Scans</label>
+                    <div class="scan-mode">
+                        <label>
+                            <input type="radio" name="scanCount" value="continuous" checked>
+                            Continuous
+                        </label>
+                        <label>
+                            <input type="radio" name="scanCount" value="limited">
+                            Limited to
+                        </label>
+                        <div class="interval-control">
+                            <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
+                            <span>scans</span>
+                        </div>
+                    </div>
+                    <div id="etaDisplay" style="margin-top:5px; font-size:12px; color:#667eea;"></div>
+                </div>
             </div>
             
             <div class="button-group">
@@ -393,6 +412,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let isFirstScan = true; // Track if this is the first scan
         let nextScanTime = null; // Track when next scan will occur
         let tileCountdowns = {}; // Store countdown intervals for each tile
+        let completedScans = 0; // Track number of completed scans
+        let totalScans = 0; // Total number of scans to perform (0 = continuous)
+        let scanStartTime = null; // Track when scanning started
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
 
         // Check if Chart.js loaded successfully
@@ -400,7 +422,65 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available');
             }
+            
+            // Set up event listeners for scan mode and count options
+            document.querySelectorAll('input[name="scanMode"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const repeatOptions = document.getElementById('repeatOptions');
+                    if (this.value === 'repeat') {
+                        repeatOptions.style.display = 'block';
+                        updateETA();
+                    } else {
+                        repeatOptions.style.display = 'none';
+                    }
+                });
+            });
+            
+            document.querySelectorAll('input[name="scanCount"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const countInput = document.getElementById('scanCountInput');
+                    if (this.value === 'limited') {
+                        countInput.disabled = false;
+                    } else {
+                        countInput.disabled = true;
+                    }
+                    updateETA();
+                });
+            });
+            
+            document.getElementById('scanInterval').addEventListener('input', updateETA);
+            document.getElementById('scanCountInput').addEventListener('input', updateETA);
         });
+        
+        function updateETA() {
+            const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
+            if (scanMode !== 'repeat') return;
+            
+            const scanCountMode = document.querySelector('input[name="scanCount"]:checked').value;
+            const etaDisplay = document.getElementById('etaDisplay');
+            
+            if (scanCountMode === 'continuous') {
+                etaDisplay.textContent = '⏱️ ETA: Continuous scanning (no end time)';
+            } else {
+                const scans = parseInt(document.getElementById('scanCountInput').value);
+                const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value));
+                const totalSeconds = scans * interval;
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                
+                if (completedScans > 0) {
+                    // During scanning
+                    const remaining = totalScans - completedScans;
+                    const remainingSeconds = remaining * interval;
+                    const remMinutes = Math.floor(remainingSeconds / 60);
+                    const remSeconds = remainingSeconds % 60;
+                    etaDisplay.textContent = `⏱️ ETA: ${remMinutes}m ${remSeconds}s remaining (${completedScans}/${totalScans} scans completed)`;
+                } else {
+                    // Before scanning
+                    etaDisplay.textContent = `⏱️ ETA: ${minutes}m ${seconds}s total for ${scans} scans`;
+                }
+            }
+        }
 
         function startScan() {
             const ipInput = document.getElementById('ipInput').value.trim();
@@ -441,8 +521,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             document.getElementById('countdownTimer').style.display = 'none';
 
-            // Mark as first scan
+            // Mark as first scan and reset counters
             isFirstScan = true;
+            completedScans = 0;
+            scanStartTime = Date.now();
             
             // Perform initial scan
             performScan();
@@ -452,7 +534,24 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 const intervalSeconds = Math.max(5, parseInt(document.getElementById('scanInterval').value));
                 const interval = intervalSeconds * 1000;
                 
+                const scanCountMode = document.querySelector('input[name="scanCount"]:checked').value;
+                if (scanCountMode === 'continuous') {
+                    totalScans = 0; // 0 means continuous
+                } else {
+                    totalScans = parseInt(document.getElementById('scanCountInput').value);
+                }
+                
+                updateETA();
+                
                 scanInterval = setInterval(() => {
+                    // Check if we've reached the scan limit
+                    if (totalScans > 0 && completedScans >= totalScans) {
+                        const finalCount = completedScans;
+                        stopScan();
+                        alert(`Scanning complete! Performed ${finalCount} scans.`);
+                        return;
+                    }
+                    
                     isFirstScan = false; // Mark subsequent scans as not first
                     nextScanTime = intervalSeconds;
                     performScan();
@@ -475,6 +574,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             document.getElementById('countdownTimer').style.display = 'none';
             isFirstScan = true; // Reset for next start
+            completedScans = 0; // Reset counter
+            totalScans = 0;
+            updateETA();
         }
 
         function startCountdown(seconds) {
@@ -750,6 +852,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 }
                 if (result.online && result.response_time) {
                     infoHTML += `<div class="status-info">Response: <span class="response-time">${result.response_time}ms</span></div>`;
+                    
+                    // Calculate and display min/max/avg if we have history
+                    if (historyData[result.ip] && historyData[result.ip].data.length > 0) {
+                        const values = historyData[result.ip].data.map(d => d.value);
+                        const min = Math.min(...values).toFixed(2);
+                        const max = Math.max(...values).toFixed(2);
+                        const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+                        infoHTML += `<div class="status-info" style="font-size:11px; color:#888;">Min: ${min}ms | Avg: ${avg}ms | Max: ${max}ms</div>`;
+                    }
                 }
                 
                 // Add mini chart container for online IPs
@@ -788,6 +899,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             document.getElementById('offlineCount').textContent = offlineCount;
             document.getElementById('avgResponse').textContent = 
                 responseCount > 0 ? Math.round(totalResponse / responseCount) + 'ms' : '--';
+            
+            // Increment completed scans counter and update ETA
+            if (scanInterval) {
+                completedScans++;
+                updateETA();
+            }
         }
 
         function updateChart(results) {
