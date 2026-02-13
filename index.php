@@ -98,6 +98,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
         button {
             padding: 12px 24px;
@@ -110,29 +111,86 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
         .btn-primary {
             background: linear-gradient(135deg, #00d9ff 0%, #0099cc 100%);
             color: #0a0e1a;
             box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
         }
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4);
+        }
+        .btn-primary.scanning {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            animation: pulse-button 2s ease-in-out infinite;
+        }
+        @keyframes pulse-button {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
         }
         .btn-secondary {
             background: rgba(75, 85, 99, 0.8);
             color: #e4e7eb;
             border: 1px solid rgba(156, 163, 175, 0.3);
         }
-        .btn-secondary:hover {
+        .btn-secondary:hover:not(:disabled) {
             background: rgba(107, 114, 128, 0.9);
         }
         .btn-danger {
             background: rgba(239, 68, 68, 0.8);
             color: white;
         }
-        .btn-danger:hover {
+        .btn-danger:hover:not(:disabled) {
             background: rgba(220, 38, 38, 0.9);
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            color: #00d9ff;
+            animation: fade-in 0.3s ease-in-out;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-indicator.scanning {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: rgba(0, 255, 136, 0.3);
+            color: #00ff88;
+        }
+        .status-indicator.complete {
+            background: rgba(0, 217, 255, 0.15);
+            border-color: rgba(0, 217, 255, 0.4);
+            color: #00d9ff;
+        }
+        .status-indicator .spinner-small {
+            width: 14px;
+            height: 14px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        textarea:read-only {
+            background: rgba(10, 14, 26, 0.6);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
         }
         .scan-mode {
             display: flex;
@@ -459,9 +517,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             </div>
             
             <div class="button-group">
-                <button class="btn-primary" onclick="startScan()">🚀 Start Scan</button>
+                <button id="startBtn" class="btn-primary" onclick="startScan()">🚀 Start Scan</button>
                 <button class="btn-secondary" onclick="stopScan()">⏸️ Stop Scan</button>
                 <button class="btn-danger" onclick="clearResults()">🗑️ Clear Results</button>
+                <div id="statusIndicator" style="display: none;"></div>
             </div>
         </div>
         
@@ -588,6 +647,46 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 }
             }
         }
+        
+        function setScanningState(scanning) {
+            const ipInput = document.getElementById('ipInput');
+            const startBtn = document.getElementById('startBtn');
+            const statusIndicator = document.getElementById('statusIndicator');
+            
+            if (scanning) {
+                // Set readonly and disable start button
+                ipInput.readOnly = true;
+                startBtn.disabled = true;
+                startBtn.classList.add('scanning');
+                startBtn.innerHTML = '⏳ Scanning...';
+                
+                // Show scanning status
+                statusIndicator.className = 'status-indicator scanning';
+                statusIndicator.innerHTML = '<div class="spinner-small"></div><span>Scan in progress</span>';
+                statusIndicator.style.display = 'inline-flex';
+            } else {
+                // Remove readonly and enable start button
+                ipInput.readOnly = false;
+                startBtn.disabled = false;
+                startBtn.classList.remove('scanning');
+                startBtn.innerHTML = '🚀 Start Scan';
+                
+                // Hide status indicator
+                statusIndicator.style.display = 'none';
+            }
+        }
+        
+        function showCompletionStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            statusIndicator.className = 'status-indicator complete';
+            statusIndicator.innerHTML = '✓ Scan completed';
+            statusIndicator.style.display = 'inline-flex';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 3000);
+        }
 
         function startScan() {
             const ipInput = document.getElementById('ipInput').value.trim();
@@ -633,6 +732,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             completedScans = 0;
             scanStartTime = Date.now();
             
+            // Set scanning state
+            setScanningState(true);
+            
             // Perform initial scan
             performScan();
 
@@ -653,9 +755,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 scanInterval = setInterval(() => {
                     // Check if we've reached the scan limit
                     if (totalScans > 0 && completedScans >= totalScans) {
-                        const finalCount = completedScans;
                         stopScan();
-                        alert(`Scanning complete! Performed ${finalCount} scans.`);
+                        showCompletionStatus();
                         return;
                     }
                     
@@ -684,6 +785,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             completedScans = 0; // Reset counter
             totalScans = 0;
             updateETA();
+            
+            // Reset UI state
+            setScanningState(false);
         }
 
         function startCountdown(seconds) {
@@ -910,9 +1014,19 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 displayResults(data.results);
                 updateChart(data.results);
                 
+                // If one-time scan, reset UI state after completion
+                if (!scanInterval) {
+                    setScanningState(false);
+                    showCompletionStatus();
+                }
+                
             } catch (error) {
                 console.error('Error:', error);
                 alert('Failed to perform scan: ' + error.message);
+                // Reset UI state on error
+                if (!scanInterval) {
+                    setScanningState(false);
+                }
             } finally {
                 document.getElementById('loadingIndicator').style.display = 'none';
             }
