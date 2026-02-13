@@ -147,6 +147,15 @@
             border-color: #dc3545;
             background: #fef2f2;
         }
+        .status-card.scanning {
+            border-color: #667eea;
+            background: #e8eeff;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
         .status-header {
             display: flex;
             justify-content: space-between;
@@ -406,6 +415,101 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             }
         }
 
+        // Parse IP input to extract individual IPs for display
+        function parseIPInput(input) {
+            const lines = input.split('\n');
+            const ips = [];
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#')) continue;
+                
+                const parts = line.split(/\s+/);
+                const ipPart = parts[0];
+                const name = parts.slice(1).join(' ') || '';
+                
+                // Check if it's a CIDR notation
+                if (ipPart.includes('/')) {
+                    const cidrIPs = expandCIDR(ipPart);
+                    cidrIPs.forEach(ip => ips.push({ ip, name }));
+                }
+                // Check if it's a range
+                else if (/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/.test(ipPart)) {
+                    const match = ipPart.match(/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/);
+                    const base = match[1];
+                    const start = parseInt(match[2]);
+                    const end = parseInt(match[3]);
+                    
+                    for (let i = start; i <= end && ips.length < 50; i++) {
+                        ips.push({ ip: base + i, name });
+                    }
+                }
+                // Single IP
+                else {
+                    ips.push({ ip: ipPart, name });
+                }
+            }
+            
+            return ips;
+        }
+
+        // Simple CIDR expansion for frontend display (limited to prevent abuse)
+        function expandCIDR(cidr) {
+            const [ip, prefix] = cidr.split('/');
+            const prefixNum = parseInt(prefix);
+            
+            // Limit to /24 or smaller
+            if (prefixNum < 24) {
+                return [ip]; // Just show the base IP if too large
+            }
+            
+            const parts = ip.split('.').map(p => parseInt(p));
+            const ips = [];
+            
+            // Simple expansion for /24 to /32
+            const hostBits = 32 - prefixNum;
+            const numHosts = Math.min(Math.pow(2, hostBits) - 2, 50); // Limit to 50
+            
+            for (let i = 1; i <= numHosts; i++) {
+                const newParts = [...parts];
+                newParts[3] = (parts[3] + i) % 256;
+                ips.push(newParts.join('.'));
+            }
+            
+            return ips.length > 0 ? ips : [ip];
+        }
+
+        // Display scanning tiles immediately when scan starts
+        function displayScanningTiles(ips) {
+            document.getElementById('resultsSection').style.display = 'block';
+            const statusGrid = document.getElementById('statusGrid');
+            statusGrid.innerHTML = '';
+            
+            ips.forEach(ipObj => {
+                const card = document.createElement('div');
+                card.className = 'status-card scanning';
+                card.setAttribute('data-ip', ipObj.ip);
+                
+                card.innerHTML = `
+                    <div class="status-header">
+                        <span class="status-icon">⏳</span>
+                        <span style="color: #667eea; font-weight: 600;">Scanning...</span>
+                    </div>
+                    ${ipObj.name ? `<div class="friendly-name">${ipObj.name}</div>` : ''}
+                    <div class="ip-address">${ipObj.ip}</div>
+                    <div class="status-info">Waiting for response...</div>
+                `;
+                
+                statusGrid.appendChild(card);
+            });
+            
+            // Update stats to show scanning state
+            document.getElementById('totalCount').textContent = ips.length;
+            document.getElementById('onlineCount').textContent = '0';
+            document.getElementById('offlineCount').textContent = '0';
+            document.getElementById('avgResponse').textContent = '--';
+        }
+
         async function performScan() {
             const now = Date.now();
             if (now - lastScanTime < RATE_LIMIT_MS) {
@@ -414,6 +518,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             lastScanTime = now;
 
             const ipInput = document.getElementById('ipInput').value.trim();
+            
+            // Parse IPs and display scanning tiles immediately
+            const ips = parseIPInput(ipInput);
+            if (ips.length === 0) {
+                alert('No valid IPs to scan');
+                return;
+            }
+            
+            displayScanningTiles(ips);
             document.getElementById('loadingIndicator').style.display = 'block';
 
             try {
