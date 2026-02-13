@@ -188,6 +188,15 @@
             font-size: 11px;
             color: #999;
         }
+        .tile-countdown {
+            font-size: 11px;
+            color: #667eea;
+            margin-top: 5px;
+            padding: 3px 6px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 3px;
+            display: inline-block;
+        }
         .mini-chart-container {
             margin-top: 10px;
             height: 60px;
@@ -215,6 +224,7 @@
             color: #667eea;
             font-size: 18px;
             font-weight: 600;
+            display: none; /* Hide global countdown, using per-tile instead */
         }
         .loading {
             text-align: center;
@@ -380,6 +390,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let historyData = {};
         let miniCharts = {}; // Store mini chart instances
         let lastScanTime = 0;
+        let isFirstScan = true; // Track if this is the first scan
+        let nextScanTime = null; // Track when next scan will occur
+        let tileCountdowns = {}; // Store countdown intervals for each tile
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
 
         // Check if Chart.js loaded successfully
@@ -422,8 +435,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(countdownInterval);
                 countdownInterval = null;
             }
+            // Clear all tile countdowns
+            Object.values(tileCountdowns).forEach(interval => clearInterval(interval));
+            tileCountdowns = {};
+            
             document.getElementById('countdownTimer').style.display = 'none';
 
+            // Mark as first scan
+            isFirstScan = true;
+            
             // Perform initial scan
             performScan();
 
@@ -432,12 +452,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 const intervalSeconds = Math.max(5, parseInt(document.getElementById('scanInterval').value));
                 const interval = intervalSeconds * 1000;
                 
-                // Start countdown timer
-                startCountdown(intervalSeconds);
-                
                 scanInterval = setInterval(() => {
+                    isFirstScan = false; // Mark subsequent scans as not first
+                    nextScanTime = intervalSeconds;
                     performScan();
-                    startCountdown(intervalSeconds);
                 }, interval);
             }
         }
@@ -451,7 +469,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(countdownInterval);
                 countdownInterval = null;
             }
+            // Clear all tile countdowns
+            Object.values(tileCountdowns).forEach(interval => clearInterval(interval));
+            tileCountdowns = {};
+            
             document.getElementById('countdownTimer').style.display = 'none';
+            isFirstScan = true; // Reset for next start
         }
 
         function startCountdown(seconds) {
@@ -551,35 +574,74 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             return ips.length > 0 ? ips : [ip];
         }
 
-        // Display scanning tiles immediately when scan starts
+        // Display scanning tiles immediately when scan starts (only on first scan)
         function displayScanningTiles(ips) {
             document.getElementById('resultsSection').style.display = 'block';
             const statusGrid = document.getElementById('statusGrid');
-            statusGrid.innerHTML = '';
             
-            ips.forEach(ipObj => {
-                const card = document.createElement('div');
-                card.className = 'status-card scanning';
-                card.setAttribute('data-ip', ipObj.ip);
+            // Only clear and show blue tiles on first scan
+            if (isFirstScan) {
+                statusGrid.innerHTML = '';
                 
-                card.innerHTML = `
-                    <div class="status-header">
-                        <span class="status-icon">⏳</span>
-                        <span style="color: #667eea; font-weight: 600;">Scanning...</span>
-                    </div>
-                    ${ipObj.name ? `<div class="friendly-name">${ipObj.name}</div>` : ''}
-                    <div class="ip-address">${ipObj.ip}</div>
-                    <div class="status-info">Waiting for response...</div>
-                `;
+                ips.forEach(ipObj => {
+                    const card = document.createElement('div');
+                    card.className = 'status-card scanning';
+                    card.setAttribute('data-ip', ipObj.ip);
+                    
+                    card.innerHTML = `
+                        <div class="status-header">
+                            <span class="status-icon">⏳</span>
+                            <span style="color: #667eea; font-weight: 600;">Scanning...</span>
+                        </div>
+                        ${ipObj.name ? `<div class="friendly-name">${ipObj.name}</div>` : ''}
+                        <div class="ip-address">${ipObj.ip}</div>
+                        <div class="status-info">Waiting for response...</div>
+                    `;
+                    
+                    statusGrid.appendChild(card);
+                });
                 
-                statusGrid.appendChild(card);
-            });
+                // Update stats to show scanning state
+                document.getElementById('totalCount').textContent = ips.length;
+                document.getElementById('onlineCount').textContent = '0';
+                document.getElementById('offlineCount').textContent = '0';
+                document.getElementById('avgResponse').textContent = '--';
+            }
+            // On subsequent scans, tiles already exist - just leave them as is
+        }
+        
+        // Start countdown on individual tiles
+        function startTileCountdown(ip, seconds) {
+            const card = document.querySelector(`[data-ip="${ip}"]`);
+            if (!card) return;
             
-            // Update stats to show scanning state
-            document.getElementById('totalCount').textContent = ips.length;
-            document.getElementById('onlineCount').textContent = '0';
-            document.getElementById('offlineCount').textContent = '0';
-            document.getElementById('avgResponse').textContent = '--';
+            // Clear existing countdown for this tile
+            if (tileCountdowns[ip]) {
+                clearInterval(tileCountdowns[ip]);
+            }
+            
+            // Find or create countdown element
+            let countdownEl = card.querySelector('.tile-countdown');
+            if (!countdownEl) {
+                countdownEl = document.createElement('div');
+                countdownEl.className = 'tile-countdown';
+                card.appendChild(countdownEl);
+            }
+            
+            let remaining = seconds;
+            countdownEl.textContent = `Next scan in ${remaining}s`;
+            countdownEl.style.display = 'inline-block';
+            
+            tileCountdowns[ip] = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(tileCountdowns[ip]);
+                    delete tileCountdowns[ip];
+                    countdownEl.style.display = 'none';
+                } else {
+                    countdownEl.textContent = `Next scan in ${remaining}s`;
+                }
+            }, 1000);
         }
 
         async function performScan() {
@@ -651,7 +713,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             document.getElementById('resultsSection').style.display = 'block';
             
             const statusGrid = document.getElementById('statusGrid');
-            statusGrid.innerHTML = '';
             
             let onlineCount = 0;
             let offlineCount = 0;
@@ -659,7 +720,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             let responseCount = 0;
 
             results.forEach(result => {
-                const card = document.createElement('div');
+                // Try to find existing card for this IP
+                let card = statusGrid.querySelector(`[data-ip="${result.ip}"]`);
+                const isNewCard = !card;
+                
+                if (!card) {
+                    card = document.createElement('div');
+                    card.setAttribute('data-ip', result.ip);
+                }
+                
                 card.className = `status-card ${result.online ? 'online' : 'offline'}`;
                 
                 const icon = result.online ? '✅' : '❌';
@@ -698,11 +767,18 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     ${chartHTML}
                 `;
                 
-                statusGrid.appendChild(card);
+                if (isNewCard) {
+                    statusGrid.appendChild(card);
+                }
                 
                 // Update mini chart if online
                 if (result.online && result.response_time) {
                     updateMiniChart(result.ip, result.response_time);
+                }
+                
+                // Start countdown for next scan if in repeat mode
+                if (scanInterval && nextScanTime) {
+                    startTileCountdown(result.ip, nextScanTime);
                 }
             });
 
