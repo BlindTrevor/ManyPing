@@ -398,8 +398,16 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
 
             const now = Date.now();
             if (now - lastScanTime < RATE_LIMIT_MS) {
+                // Calculate wait time and automatically wait instead of alerting
                 const waitTime = Math.ceil((RATE_LIMIT_MS - (now - lastScanTime)) / 1000);
-                alert(`Please wait ${waitTime} more seconds before starting a new scan`);
+                
+                // Show countdown for the wait
+                startCountdown(waitTime);
+                
+                // Automatically retry after waiting
+                setTimeout(() => {
+                    startScan();
+                }, (RATE_LIMIT_MS - (now - lastScanTime)));
                 return;
             }
 
@@ -605,6 +613,25 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 const data = await response.json();
                 
                 if (data.error) {
+                    // Check if it's a rate limit error
+                    if (data.error.includes('Rate limit:')) {
+                        // Extract wait time from error message
+                        const match = data.error.match(/wait (\d+) seconds/);
+                        if (match) {
+                            const waitTime = parseInt(match[1]);
+                            console.log(`Rate limit hit, automatically waiting ${waitTime} seconds...`);
+                            
+                            // Show countdown and retry after waiting
+                            startCountdown(waitTime);
+                            
+                            setTimeout(() => {
+                                performScan();
+                            }, waitTime * 1000);
+                            return;
+                        }
+                    }
+                    
+                    // For non-rate-limit errors, show alert
                     alert('Error: ' + data.error);
                     return;
                 }
