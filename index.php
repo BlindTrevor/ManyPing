@@ -101,15 +101,31 @@
             align-items: center;
         }
         button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
+            padding: 14px 28px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
-            font-size: 14px;
+            font-size: 13px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1.5px;
+            font-family: 'Courier New', monospace;
+            position: relative;
+            overflow: hidden;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        button:hover::before {
+            left: 100%;
         }
         button:disabled {
             opacity: 0.5;
@@ -119,37 +135,46 @@
             transform: none;
             box-shadow: none;
         }
-        .btn-primary {
+        button:disabled::before {
+            display: none;
+        }
+        .btn-toggle {
             background: linear-gradient(135deg, #00d9ff 0%, #0099cc 100%);
             color: #0a0e1a;
-            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(0, 217, 255, 0.6);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
-        .btn-primary:hover:not(:disabled) {
+        .btn-toggle:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4);
+            box-shadow: 0 0 30px rgba(0, 217, 255, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.2);
+            border-color: rgba(0, 217, 255, 1);
         }
-        .btn-primary.scanning {
-            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
-            animation: pulse-button 2s ease-in-out infinite;
+        .btn-toggle.scanning {
+            background: linear-gradient(135deg, #ff3366 0%, #cc0033 100%);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 51, 102, 0.8);
+            animation: pulse-button 1.5s ease-in-out infinite;
+        }
+        .btn-toggle.scanning:hover:not(:disabled) {
+            box-shadow: 0 0 30px rgba(255, 51, 102, 0.7), inset 0 0 15px rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 51, 102, 1);
         }
         @keyframes pulse-button {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-        .btn-secondary {
-            background: rgba(75, 85, 99, 0.8);
-            color: #e4e7eb;
-            border: 1px solid rgba(156, 163, 175, 0.3);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            background: rgba(107, 114, 128, 0.9);
+            50% { opacity: 0.85; }
         }
         .btn-danger {
-            background: rgba(239, 68, 68, 0.8);
-            color: white;
+            background: linear-gradient(135deg, rgba(75, 85, 99, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%);
+            color: #e4e7eb;
+            border: 2px solid rgba(156, 163, 175, 0.4);
+            box-shadow: 0 0 10px rgba(75, 85, 99, 0.3);
         }
         .btn-danger:hover:not(:disabled) {
-            background: rgba(220, 38, 38, 0.9);
+            background: linear-gradient(135deg, rgba(107, 114, 128, 0.95) 0%, rgba(75, 85, 99, 0.95) 100%);
+            border-color: rgba(156, 163, 175, 0.6);
+            transform: translateY(-1px);
+            box-shadow: 0 0 15px rgba(75, 85, 99, 0.4);
         }
         .status-indicator {
             display: inline-flex;
@@ -517,9 +542,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             </div>
             
             <div class="button-group">
-                <button id="startBtn" class="btn-primary" onclick="startScan()">🚀 Start Scan</button>
-                <button class="btn-secondary" onclick="stopScan()">⏸️ Stop Scan</button>
-                <button class="btn-danger" onclick="clearResults()">🗑️ Clear Results</button>
+                <button id="toggleBtn" class="btn-toggle" onclick="toggleScan()">[ >_ EXECUTE SCAN ]</button>
+                <button class="btn-danger" onclick="clearResults()">[ ✕ CLEAR ]</button>
                 <div id="statusIndicator" style="display: none;"></div>
             </div>
         </div>
@@ -650,29 +674,37 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         
         function setScanningState(scanning) {
             const ipInput = document.getElementById('ipInput');
-            const startBtn = document.getElementById('startBtn');
+            const toggleBtn = document.getElementById('toggleBtn');
             const statusIndicator = document.getElementById('statusIndicator');
             
             if (scanning) {
-                // Set readonly and disable start button
+                // Set readonly and update button to stop mode
                 ipInput.readOnly = true;
-                startBtn.disabled = true;
-                startBtn.classList.add('scanning');
-                startBtn.innerHTML = '⏳ Scanning...';
+                toggleBtn.classList.add('scanning');
+                toggleBtn.innerHTML = '[ ■ TERMINATE ]';
                 
                 // Show scanning status
                 statusIndicator.className = 'status-indicator scanning';
                 statusIndicator.innerHTML = '<div class="spinner-small"></div><span>Scan in progress</span>';
                 statusIndicator.style.display = 'inline-flex';
             } else {
-                // Remove readonly and enable start button
+                // Remove readonly and reset button to scan mode
                 ipInput.readOnly = false;
-                startBtn.disabled = false;
-                startBtn.classList.remove('scanning');
-                startBtn.innerHTML = '🚀 Start Scan';
+                toggleBtn.classList.remove('scanning');
+                toggleBtn.innerHTML = '[ >_ EXECUTE SCAN ]';
                 
                 // Hide status indicator
                 statusIndicator.style.display = 'none';
+            }
+        }
+        
+        function toggleScan() {
+            // If currently scanning, stop it
+            if (scanInterval || document.getElementById('toggleBtn').classList.contains('scanning')) {
+                stopScan();
+            } else {
+                // Otherwise start scanning
+                startScan();
             }
         }
         
