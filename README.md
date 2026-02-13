@@ -81,9 +81,16 @@ The graph displays historical response times for all online IPs, updating with e
 
 To prevent network abuse and DDOS behavior:
 - Maximum of **50 IPs** can be scanned at once
-- Minimum **5-second interval** between scans
+- Minimum **5-second interval** between scans (enforced server-side)
 - CIDR ranges are limited to /24 or smaller (max 256 IPs)
 - Input is automatically truncated if limits are exceeded
+
+## Session Management
+
+- Uses PHP sessions for rate limiting (no persistent storage on server)
+- Sessions automatically expire after **60 minutes** of inactivity
+- All tracking is temporary and session-based only
+- No user data is permanently stored on the server
 
 ## Requirements
 

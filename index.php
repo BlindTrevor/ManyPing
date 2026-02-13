@@ -325,9 +325,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             <div class="status-grid" id="statusGrid"></div>
             
-            <div class="chart-container">
+            <div class="chart-container" id="chartContainer">
                 <h3>Response Time History</h3>
                 <canvas id="responseChart"></canvas>
+                <div id="chartUnavailable" style="display:none; padding: 20px; text-align: center; color: #666;">
+                    📊 Chart visualization unavailable (Chart.js library not loaded)
+                </div>
             </div>
         </div>
         
@@ -344,6 +347,14 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let historyData = {};
         let lastScanTime = 0;
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
+
+        // Check if Chart.js loaded successfully
+        window.addEventListener('load', function() {
+            if (typeof Chart === 'undefined') {
+                document.getElementById('responseChart').style.display = 'none';
+                document.getElementById('chartUnavailable').style.display = 'block';
+            }
+        });
 
         function startScan() {
             const ipInput = document.getElementById('ipInput').value.trim();
@@ -491,6 +502,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         }
 
         function updateChart(results) {
+            // Check if Chart.js is available
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js not available, skipping chart update');
+                return;
+            }
+            
             const timestamp = new Date().toLocaleTimeString();
             
             // Update history data

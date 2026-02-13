@@ -3,7 +3,23 @@
  * SimulPing - Concurrent IP Ping Handler
  * Handles parsing of IPs, ranges, and CIDR notation
  * Performs concurrent pings with rate limiting
+ * Uses sessions for rate limiting - no persistent storage
  */
+
+// Configure session to expire after 60 minutes of inactivity
+ini_set('session.gc_maxlifetime', 3600); // 60 minutes
+session_set_cookie_params(3600); // Cookie expires in 60 minutes
+session_start();
+
+// Check session age and clear if needed
+if (isset($_SESSION['created']) && (time() - $_SESSION['created'] > 3600)) {
+    session_unset();
+    session_destroy();
+    session_start();
+}
+if (!isset($_SESSION['created'])) {
+    $_SESSION['created'] = time();
+}
 
 header('Content-Type: application/json');
 
@@ -11,6 +27,7 @@ header('Content-Type: application/json');
 const MAX_IPS_PER_SCAN = 50;
 const PING_TIMEOUT = 2; // seconds
 const MAX_CONCURRENT = 10; // Maximum concurrent ping processes
+const MIN_SCAN_INTERVAL = 5; // Minimum seconds between scans
 
 /**
  * Parse input and extract IPs with optional names
@@ -174,6 +191,16 @@ try {
         throw new Exception('Invalid request method');
     }
     
+    // Server-side rate limiting using sessions
+    $currentTime = time();
+    if (isset($_SESSION['last_scan_time'])) {
+        $timeSinceLastScan = $currentTime - $_SESSION['last_scan_time'];
+        if ($timeSinceLastScan < MIN_SCAN_INTERVAL) {
+            $waitTime = MIN_SCAN_INTERVAL - $timeSinceLastScan;
+            throw new Exception("Rate limit: Please wait {$waitTime} seconds before next scan");
+        }
+    }
+    
     if (!isset($_POST['ips']) || empty($_POST['ips'])) {
         throw new Exception('No IPs provided');
     }
@@ -189,6 +216,9 @@ try {
     if (count($targets) > MAX_IPS_PER_SCAN) {
         $targets = array_slice($targets, 0, MAX_IPS_PER_SCAN);
     }
+    
+    // Update last scan time in session
+    $_SESSION['last_scan_time'] = $currentTime;
     
     $results = pingMultiple($targets);
     
