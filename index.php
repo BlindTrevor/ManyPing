@@ -216,6 +216,11 @@
             border-color: rgba(0, 217, 255, 0.4);
             color: #00d9ff;
         }
+        .status-indicator.error {
+            background: rgba(255, 51, 102, 0.1);
+            border-color: rgba(255, 51, 102, 0.3);
+            color: #ff3366;
+        }
         .status-indicator .spinner-small {
             width: 14px;
             height: 14px;
@@ -718,11 +723,23 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 statusIndicator.style.display = 'none';
             }, 3000);
         }
+        
+        function showErrorStatus(message) {
+            const statusIndicator = document.getElementById('statusIndicator');
+            statusIndicator.className = 'status-indicator error';
+            statusIndicator.innerHTML = '⚠ ' + message;
+            statusIndicator.style.display = 'inline-flex';
+            
+            // Hide after 5 seconds
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 5000);
+        }
 
         function startScan() {
             const ipInput = document.getElementById('ipInput').value.trim();
             if (!ipInput) {
-                alert('Please enter at least one IP address');
+                showErrorStatus('Please enter at least one IP address');
                 return;
             }
 
@@ -972,7 +989,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             // Parse IPs and display scanning tiles immediately
             const ips = parseIPInput(ipInput);
             if (ips.length === 0) {
-                alert('No valid IPs to scan');
+                showErrorStatus('No valid IPs to scan');
                 return;
             }
             
@@ -987,7 +1004,40 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     body: 'ips=' + encodeURIComponent(ipInput)
                 });
 
-                const data = await response.json();
+                // Check if response is ok
+                if (!response.ok) {
+                    showErrorStatus(`Server error: ${response.status} ${response.statusText}`);
+                    if (!scanInterval) {
+                        setScanningState(false);
+                    }
+                    return;
+                }
+                
+                // Try to parse JSON, catch if it's not valid JSON
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Unexpected response format:', text.substring(0, 200));
+                    showErrorStatus('Server returned an unexpected response. Check console for details.');
+                    if (!scanInterval) {
+                        setScanningState(false);
+                    }
+                    return;
+                }
+                
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    const text = await response.text();
+                    console.error('JSON parse error:', jsonError);
+                    console.error('Response text:', text.substring(0, 200));
+                    showErrorStatus('Failed to parse server response. Check console for details.');
+                    if (!scanInterval) {
+                        setScanningState(false);
+                    }
+                    return;
+                }
                 
                 if (data.error) {
                     // Check if it's a rate limit error
@@ -1006,8 +1056,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         }
                     }
                     
-                    // For non-rate-limit errors, show alert
-                    alert('Error: ' + data.error);
+                    // For non-rate-limit errors, show error status
+                    showErrorStatus(data.error);
                     return;
                 }
 
@@ -1022,7 +1072,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 
             } catch (error) {
                 console.error('Error:', error);
-                alert('Failed to perform scan: ' + error.message);
+                showErrorStatus('Failed to perform scan: ' + error.message);
                 // Reset UI state on error
                 if (!scanInterval) {
                     setScanningState(false);
