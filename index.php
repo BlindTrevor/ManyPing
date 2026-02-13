@@ -188,14 +188,33 @@
             font-size: 11px;
             color: #999;
         }
+        .mini-chart-container {
+            margin-top: 10px;
+            height: 60px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 5px;
+            padding: 5px;
+        }
+        .mini-chart-canvas {
+            width: 100% !important;
+            height: 50px !important;
+        }
         .chart-container {
             margin-top: 30px;
             background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
+            display: none; /* Hide the main chart */
         }
         canvas {
             max-height: 400px;
+        }
+        .countdown-timer {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
         }
         .loading {
             text-align: center;
@@ -343,6 +362,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             </div>
         </div>
         
+        <div id="countdownTimer" class="countdown-timer" style="display:none;">
+            Next scan in: <span id="countdownValue">0</span> seconds
+        </div>
+        
         <div class="loading" id="loadingIndicator" style="display:none;">
             <div class="spinner"></div>
             <p>Scanning IPs...</p>
@@ -352,16 +375,17 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
         let scanInterval = null;
+        let countdownInterval = null;
         let responseChart = null;
         let historyData = {};
+        let miniCharts = {}; // Store mini chart instances
         let lastScanTime = 0;
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
 
         // Check if Chart.js loaded successfully
         window.addEventListener('load', function() {
             if (typeof Chart === 'undefined') {
-                document.getElementById('responseChart').style.display = 'none';
-                document.getElementById('chartUnavailable').style.display = 'block';
+                console.warn('Chart.js not available');
             }
         });
 
@@ -381,19 +405,32 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
 
             const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
             
-            // Stop any existing scan
+            // Stop any existing scan and countdown
             if (scanInterval) {
                 clearInterval(scanInterval);
                 scanInterval = null;
             }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdownTimer').style.display = 'none';
 
             // Perform initial scan
             performScan();
 
             // Set up repeat if needed
             if (scanMode === 'repeat') {
-                const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value)) * 1000;
-                scanInterval = setInterval(performScan, interval);
+                const intervalSeconds = Math.max(5, parseInt(document.getElementById('scanInterval').value));
+                const interval = intervalSeconds * 1000;
+                
+                // Start countdown timer
+                startCountdown(intervalSeconds);
+                
+                scanInterval = setInterval(() => {
+                    performScan();
+                    startCountdown(intervalSeconds);
+                }, interval);
             }
         }
 
@@ -402,6 +439,33 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(scanInterval);
                 scanInterval = null;
             }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdownTimer').style.display = 'none';
+        }
+
+        function startCountdown(seconds) {
+            // Clear any existing countdown
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            let remaining = seconds;
+            document.getElementById('countdownTimer').style.display = 'block';
+            document.getElementById('countdownValue').textContent = remaining;
+            
+            countdownInterval = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    document.getElementById('countdownTimer').style.display = 'none';
+                } else {
+                    document.getElementById('countdownValue').textContent = remaining;
+                }
+            }, 1000);
         }
 
         function clearResults() {
@@ -592,6 +656,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     infoHTML += `<div class="status-info">Response: <span class="response-time">${result.response_time}ms</span></div>`;
                 }
                 
+                // Add mini chart container for online IPs
+                const chartHTML = result.online ? `<div class="mini-chart-container"><canvas class="mini-chart-canvas" id="chart-${result.ip.replace(/\./g, '-')}"></canvas></div>` : '';
+                
                 card.innerHTML = `
                     <div class="status-header">
                         <span class="status-icon">${icon}</span>
@@ -601,9 +668,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     <div class="ip-address">${result.ip}</div>
                     ${infoHTML}
                     <div class="timestamp">Last checked: ${result.timestamp}</div>
+                    ${chartHTML}
                 `;
                 
                 statusGrid.appendChild(card);
+                
+                // Update mini chart if online
+                if (result.online && result.response_time) {
+                    updateMiniChart(result.ip, result.response_time);
+                }
             });
 
             // Update stats
@@ -615,15 +688,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         }
 
         function updateChart(results) {
-            // Check if Chart.js is available
-            if (typeof Chart === 'undefined') {
-                console.warn('Chart.js not available, skipping chart update');
-                return;
-            }
-            
+            // Update history data for all results
             const timestamp = new Date().toLocaleTimeString();
             
-            // Update history data
             results.forEach(result => {
                 if (result.online && result.response_time) {
                     if (!historyData[result.ip]) {
@@ -637,97 +704,92 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         value: parseFloat(result.response_time)
                     });
                     
-                    // Keep only last 20 data points
-                    if (historyData[result.ip].data.length > 20) {
+                    // Keep only last 10 data points for mini charts
+                    if (historyData[result.ip].data.length > 10) {
                         historyData[result.ip].data.shift();
                     }
                 }
             });
+        }
 
-            // Prepare chart data
-            const labels = [];
-            const datasets = [];
+        function updateMiniChart(ip, responseTime) {
+            // Check if Chart.js is available
+            if (typeof Chart === 'undefined') {
+                return;
+            }
             
-            // Get all unique timestamps
-            Object.values(historyData).forEach(host => {
-                host.data.forEach(point => {
-                    if (!labels.includes(point.time)) {
-                        labels.push(point.time);
-                    }
-                });
-            });
-
-            // Create datasets for each IP
-            const colors = [
-                '#667eea', '#764ba2', '#f093fb', '#4facfe',
-                '#43e97b', '#fa709a', '#fee140', '#30cfd0'
-            ];
+            const canvasId = 'chart-' + ip.replace(/\./g, '-');
+            const canvas = document.getElementById(canvasId);
             
-            let colorIndex = 0;
-            Object.keys(historyData).forEach(ip => {
-                const host = historyData[ip];
-                const color = colors[colorIndex % colors.length];
-                colorIndex++;
-                
-                const data = labels.map(label => {
-                    const point = host.data.find(p => p.time === label);
-                    return point ? point.value : null;
-                });
-                
-                datasets.push({
-                    label: host.name,
-                    data: data,
-                    borderColor: color,
-                    backgroundColor: color + '20',
-                    tension: 0.4,
-                    spanGaps: true
-                });
-            });
-
-            // Create or update chart
-            const ctx = document.getElementById('responseChart').getContext('2d');
+            if (!canvas) {
+                return;
+            }
             
-            if (responseChart) {
-                responseChart.data.labels = labels;
-                responseChart.data.datasets = datasets;
-                responseChart.update();
-            } else {
-                responseChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            title: {
-                                display: false
-                            }
+            // Get history data for this IP
+            const ipData = historyData[ip];
+            if (!ipData || ipData.data.length === 0) {
+                return;
+            }
+            
+            // Prepare data for mini chart
+            const values = ipData.data.map(d => d.value);
+            const labels = ipData.data.map((d, i) => ''); // No labels for mini chart
+            
+            // Destroy existing chart if it exists
+            if (miniCharts[ip]) {
+                miniCharts[ip].destroy();
+            }
+            
+            // Create mini chart
+            const ctx = canvas.getContext('2d');
+            miniCharts[ip] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        pointHoverRadius: 3,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Response Time (ms)'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Time'
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + 'ms';
                                 }
                             }
                         }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            display: false,
+                            beginAtZero: true
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
                     }
-                });
-            }
+                }
+            });
         }
+
     </script>
 </body>
 </html>
