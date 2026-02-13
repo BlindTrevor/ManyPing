@@ -1,6 +1,6 @@
 # SimulPing
 
-Ping many IP's simultaneously - A PHP web application for concurrent IP monitoring
+Ping many IPs simultaneously - A PHP web application for concurrent IP monitoring
 
 ## Features
 

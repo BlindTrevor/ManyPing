@@ -166,15 +166,16 @@ function pingIP($ip) {
 }
 
 /**
- * Ping multiple IPs concurrently using multi-processing
+ * Ping multiple IPs in batches
+ * Processes IPs sequentially in chunks to manage resource usage
  */
-function pingMultiple($targets) {
+function pingInBatches($targets) {
     $results = [];
     $chunks = array_chunk($targets, MAX_CONCURRENT);
     
     foreach ($chunks as $chunk) {
-        // For each chunk, we'll use simple sequential processing
-        // In production, you could use pcntl_fork or curl_multi for true concurrency
+        // Process each batch sequentially
+        // For production with true concurrency, consider using pcntl_fork or parallel processing
         foreach ($chunk as $target) {
             $result = pingIP($target['ip']);
             $result['name'] = $target['name'];
@@ -220,7 +221,7 @@ try {
     // Update last scan time in session
     $_SESSION['last_scan_time'] = $currentTime;
     
-    $results = pingMultiple($targets);
+    $results = pingInBatches($targets);
     
     echo json_encode([
         'success' => true,
