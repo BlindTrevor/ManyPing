@@ -752,9 +752,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(countdownInterval);
                 countdownInterval = null;
             }
-            // Clear all tile countdowns
-            Object.values(tileCountdowns).forEach(interval => clearInterval(interval));
-            tileCountdowns = {};
             
             document.getElementById('countdownTimer').style.display = 'none';
 
