@@ -727,7 +727,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         function showErrorStatus(message) {
             const statusIndicator = document.getElementById('statusIndicator');
             statusIndicator.className = 'status-indicator error';
-            statusIndicator.innerHTML = '⚠ ' + message;
+            // Use textContent to prevent XSS
+            statusIndicator.textContent = '⚠ ' + message;
             statusIndicator.style.display = 'inline-flex';
             
             // Hide after 5 seconds
