@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimulPing - Concurrent IP Monitor</title>
+    <title>ManyPing - Concurrent IP Monitor</title>
     <style>
         * {
             margin: 0;
@@ -252,7 +252,7 @@
 <body>
     <div class="container">
         <h1>
-            <span>📡</span> SimulPing
+            <span>📡</span> ManyPing
         </h1>
         <p class="subtitle">Concurrent IP Monitoring Tool - Ping multiple IPs simultaneously</p>
         

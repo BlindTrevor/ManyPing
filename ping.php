@@ -1,6 +1,6 @@
 <?php
 /**
- * SimulPing - Concurrent IP Ping Handler
+ * ManyPing - Concurrent IP Ping Handler
  * Handles parsing of IPs, ranges, and CIDR notation
  * Performs concurrent pings with rate limiting
  * Uses sessions for rate limiting - no persistent storage

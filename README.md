@@ -1,4 +1,4 @@
-# SimulPing
+# ManyPing
 
 Ping many IPs simultaneously - A PHP web application for concurrent IP monitoring
 
@@ -26,7 +26,7 @@ Ping many IPs simultaneously - A PHP web application for concurrent IP monitorin
 1. Clone the repository:
    ```bash
    git clone https://github.com/BlindTrevor/SimulPing.git
-   cd SimulPing
+   cd ManyPing
    ```
 
 2. Ensure you have PHP installed (PHP 7.0 or higher recommended)
