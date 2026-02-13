@@ -155,6 +155,19 @@
             box-shadow: 0 0 20px rgba(255, 51, 102, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 51, 102, 0.8);
             animation: pulse-button 1.5s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+            --progress: 0%;
+        }
+        .btn-toggle.scanning::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.5);
+            width: var(--progress, 0%);
+            transition: none;
         }
         .btn-toggle.scanning:hover:not(:disabled) {
             box-shadow: 0 0 30px rgba(255, 51, 102, 0.7), inset 0 0 15px rgba(255, 255, 255, 0.2);
@@ -330,28 +343,21 @@
             color: #6b7280;
             font-family: monospace;
         }
-        .tile-countdown {
-            font-size: 10px;
-            color: #00d9ff;
-            margin-top: 5px;
-            padding: 4px 8px;
-            background: rgba(0, 217, 255, 0.1);
-            border-radius: 3px;
-            display: inline-block;
-            border: 1px solid rgba(0, 217, 255, 0.2);
-            font-family: monospace;
-        }
+
         .mini-chart-container {
             margin-top: 10px;
             height: 60px;
-            background: rgba(0, 217, 255, 0.05);
-            border-radius: 5px;
-            padding: 5px;
-            border: 1px solid rgba(0, 217, 255, 0.1);
+            background: transparent;
+            border-radius: 0;
+            padding: 0;
+            border: none;
+            margin-left: -10px;
+            margin-right: -10px;
+            margin-bottom: -10px;
         }
         .mini-chart-canvas {
             width: 100% !important;
-            height: 50px !important;
+            height: 60px !important;
         }
         .chart-container {
             margin-top: 30px;
@@ -581,14 +587,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             </div>
         </div>
         
-        <div id="countdownTimer" class="countdown-timer" style="display:none;">
-            Next scan in: <span id="countdownValue">0</span> seconds
-        </div>
-        
-        <div class="loading" id="loadingIndicator" style="display:none;">
-            <div class="spinner"></div>
-            <p>Scanning IPs...</p>
-        </div>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -601,10 +600,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let lastScanTime = 0;
         let isFirstScan = true; // Track if this is the first scan
         let nextScanTime = null; // Track when next scan will occur
-        let tileCountdowns = {}; // Store countdown intervals for each tile
         let completedScans = 0; // Track number of completed scans
         let totalScans = 0; // Total number of scans to perform (0 = continuous)
         let scanStartTime = null; // Track when scanning started
+        let progressInterval = null; // Track progress bar update interval
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
 
         // Check if Chart.js loaded successfully
@@ -780,6 +779,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     totalScans = 0; // 0 means continuous
                 } else {
                     totalScans = parseInt(document.getElementById('scanCountInput').value);
+                    // Start progress bar only if not continuous
+                    startProgressBar(intervalSeconds);
                 }
                 
                 updateETA();
@@ -799,6 +800,33 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             }
         }
 
+        function startProgressBar(intervalSeconds) {
+            // Clear any existing progress interval
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
+            // Don't show progress bar for continuous scanning
+            if (totalScans === 0) return;
+            
+            const toggleBtn = document.getElementById('toggleBtn');
+            const totalTime = intervalSeconds * 1000; // Convert to ms
+            const updateFrequency = 100; // Update every 100ms
+            let elapsed = 0;
+            
+            progressInterval = setInterval(() => {
+                elapsed += updateFrequency;
+                const progress = Math.min((elapsed / totalTime) * 100, 100);
+                toggleBtn.style.setProperty('--progress', progress + '%');
+                
+                // Reset when cycle completes
+                if (elapsed >= totalTime) {
+                    elapsed = 0;
+                }
+            }, updateFrequency);
+        }
+
         function stopScan() {
             if (scanInterval) {
                 clearInterval(scanInterval);
@@ -808,9 +836,13 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(countdownInterval);
                 countdownInterval = null;
             }
-            // Clear all tile countdowns
-            Object.values(tileCountdowns).forEach(interval => clearInterval(interval));
-            tileCountdowns = {};
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
+            const toggleBtn = document.getElementById('toggleBtn');
+            toggleBtn.style.removeProperty('--progress');
             
             document.getElementById('countdownTimer').style.display = 'none';
             isFirstScan = true; // Reset for next start
@@ -956,38 +988,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         }
         
         // Start countdown on individual tiles
-        function startTileCountdown(ip, seconds) {
-            const card = document.querySelector(`[data-ip="${ip}"]`);
-            if (!card) return;
-            
-            // Clear existing countdown for this tile
-            if (tileCountdowns[ip]) {
-                clearInterval(tileCountdowns[ip]);
-            }
-            
-            // Find or create countdown element
-            let countdownEl = card.querySelector('.tile-countdown');
-            if (!countdownEl) {
-                countdownEl = document.createElement('div');
-                countdownEl.className = 'tile-countdown';
-                card.appendChild(countdownEl);
-            }
-            
-            let remaining = seconds;
-            countdownEl.textContent = `Next scan in ${remaining}s`;
-            countdownEl.style.display = 'inline-block';
-            
-            tileCountdowns[ip] = setInterval(() => {
-                remaining--;
-                if (remaining <= 0) {
-                    clearInterval(tileCountdowns[ip]);
-                    delete tileCountdowns[ip];
-                    countdownEl.style.display = 'none';
-                } else {
-                    countdownEl.textContent = `Next scan in ${remaining}s`;
-                }
-            }, 1000);
-        }
 
         async function performScan() {
             const now = Date.now();
@@ -1139,11 +1139,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 if (result.online && result.response_time) {
                     updateMiniChart(result.ip, result.response_time);
                 }
-                
-                // Start countdown for next scan if in repeat mode
-                if (scanInterval && nextScanTime) {
-                    startTileCountdown(result.ip, nextScanTime);
-                }
             });
 
             // Update stats
@@ -1215,17 +1210,23 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             // Create mini chart
             const ctx = canvas.getContext('2d');
+            
+            // Create gradient for background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(34, 197, 94, 0)'); // Transparent at top
+            gradient.addColorStop(1, 'rgba(34, 197, 94, 0.3)'); // Darker green at bottom
+            
             miniCharts[ip] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
                         data: values,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderColor: 'rgb(34, 197, 94)', // Green line
+                        backgroundColor: gradient,
                         borderWidth: 2,
-                        pointRadius: 2,
-                        pointHoverRadius: 3,
+                        pointRadius: 0, // No data points
+                        pointHoverRadius: 0, // No hover points
                         tension: 0.4,
                         fill: true
                     }]
@@ -1233,31 +1234,47 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            bottom: 0
+                        }
+                    },
                     plugins: {
                         legend: {
                             display: false
                         },
                         tooltip: {
-                            enabled: true,
-                            callbacks: {
-                                label: function(context) {
-                                    return context.parsed.y.toFixed(2) + 'ms';
-                                }
-                            }
+                            enabled: false
                         }
                     },
                     scales: {
                         x: {
-                            display: false
+                            display: false,
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
                         },
                         y: {
                             display: false,
-                            beginAtZero: true
+                            beginAtZero: true,
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
                         }
                     },
                     interaction: {
                         intersect: false,
                         mode: 'index'
+                    },
+                    elements: {
+                        line: {
+                            borderWidth: 2
+                        }
                     }
                 }
             });
