@@ -1013,26 +1013,17 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     return;
                 }
                 
-                // Try to parse JSON, catch if it's not valid JSON
-                let data;
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Unexpected response format:', text.substring(0, 200));
-                    showErrorStatus('Server returned an unexpected response. Check console for details.');
-                    if (!scanInterval) {
-                        setScanningState(false);
-                    }
-                    return;
-                }
+                // Read response text once
+                const responseText = await response.text();
                 
+                // Try to parse JSON
+                let data;
                 try {
-                    data = await response.json();
+                    data = JSON.parse(responseText);
                 } catch (jsonError) {
-                    const text = await response.text();
                     console.error('JSON parse error:', jsonError);
-                    console.error('Response text:', text.substring(0, 200));
-                    showErrorStatus('Failed to parse server response. Check console for details.');
+                    console.error('Response text:', responseText.substring(0, 200));
+                    showErrorStatus('Server returned invalid JSON. Check console for details.');
                     if (!scanInterval) {
                         setScanningState(false);
                     }
