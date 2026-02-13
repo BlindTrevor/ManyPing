@@ -731,8 +731,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 // Calculate wait time and automatically wait instead of alerting
                 const waitTime = Math.ceil((RATE_LIMIT_MS - (now - lastScanTime)) / 1000);
                 
-                // Show countdown for the wait
-                startCountdown(waitTime);
+                console.log(`Rate limit: waiting ${waitTime} seconds...`);
                 
                 // Automatically retry after waiting
                 setTimeout(() => {
@@ -752,8 +751,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 clearInterval(countdownInterval);
                 countdownInterval = null;
             }
-            
-            document.getElementById('countdownTimer').style.display = 'none';
 
             // Mark as first scan and reset counters
             isFirstScan = true;
@@ -841,7 +838,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             const toggleBtn = document.getElementById('toggleBtn');
             toggleBtn.style.removeProperty('--progress');
             
-            document.getElementById('countdownTimer').style.display = 'none';
             isFirstScan = true; // Reset for next start
             completedScans = 0; // Reset counter
             totalScans = 0;
@@ -849,28 +845,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             // Reset UI state
             setScanningState(false);
-        }
-
-        function startCountdown(seconds) {
-            // Clear any existing countdown
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-            }
-            
-            let remaining = seconds;
-            document.getElementById('countdownTimer').style.display = 'block';
-            document.getElementById('countdownValue').textContent = remaining;
-            
-            countdownInterval = setInterval(() => {
-                remaining--;
-                if (remaining <= 0) {
-                    clearInterval(countdownInterval);
-                    countdownInterval = null;
-                    document.getElementById('countdownTimer').style.display = 'none';
-                } else {
-                    document.getElementById('countdownValue').textContent = remaining;
-                }
-            }, 1000);
         }
 
         function clearResults() {
@@ -1025,9 +999,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                             const waitTime = parseInt(match[1]);
                             console.log(`Rate limit hit, automatically waiting ${waitTime} seconds...`);
                             
-                            // Show countdown and retry after waiting
-                            startCountdown(waitTime);
-                            
+                            // Retry after waiting
                             setTimeout(() => {
                                 performScan();
                             }, waitTime * 1000);
