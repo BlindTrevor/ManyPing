@@ -964,11 +964,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         function displayScanningTiles(ips) {
             document.getElementById('resultsSection').style.display = 'block';
             const statusGrid = document.getElementById('statusGrid');
-            const scanStartTime = Date.now();
+            const tileScanStartTime = Date.now();
             
             // Track all IPs being scanned with their start time
             ips.forEach(ipObj => {
-                scanningTiles[ipObj.ip] = scanStartTime;
+                scanningTiles[ipObj.ip] = tileScanStartTime;
             });
             
             // Only clear and show blue tiles on first scan
@@ -1189,9 +1189,6 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             document.getElementById('offlineCount').textContent = offlineCount;
             document.getElementById('avgResponse').textContent = 
                 responseCount > 0 ? Math.round(totalResponse / responseCount) + 'ms' : '--';
-            
-            // Check for timed out tiles after displaying results
-            checkForTimedOutTiles();
             
             // Increment completed scans counter and update ETA
             if (scanInterval) {
