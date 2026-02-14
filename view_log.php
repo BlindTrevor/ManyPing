@@ -7,9 +7,13 @@
 // Get session ID from query parameter
 $sessionId = isset($_GET['session']) ? $_GET['session'] : '';
 
-// Validate session ID (alphanumeric only)
+// Validate session ID (alphanumeric, dash, underscore only)
+if (empty($sessionId)) {
+    die('Error: No session ID provided');
+}
+
 if (!preg_match('/^[a-zA-Z0-9_-]+$/', $sessionId)) {
-    die('Invalid session ID');
+    die('Error: Invalid session ID format');
 }
 
 $logFile = __DIR__ . '/logs/' . $sessionId . '.log';
@@ -230,7 +234,7 @@ $avgResponse = $responseCount > 0 ? round($totalResponse / $responseCount, 2) : 
                     </td>
                     <td class="ip-address"><?php echo htmlspecialchars($result['ip']); ?></td>
                     <td><?php echo htmlspecialchars($result['name'] ?? ''); ?></td>
-                    <td><?php echo $result['response_time'] ? $result['response_time'] . ' ms' : '--'; ?></td>
+                    <td><?php echo isset($result['response_time']) && $result['response_time'] !== null ? $result['response_time'] . ' ms' : '--'; ?></td>
                     <td><?php echo htmlspecialchars($result['host_info'] ?? ''); ?></td>
                     <td><?php echo htmlspecialchars($result['timestamp'] ?? ''); ?></td>
                 </tr>

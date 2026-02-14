@@ -1006,8 +1006,14 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 if (data.success && data.result) {
                     const result = data.result;
                     
-                    // Track ping timing for ETA calculation
-                    pingTimings.push(pingDuration);
+                    // Track ping timing for ETA calculation using actual ping response time
+                    if (result.online && result.response_time) {
+                        // Use actual ping response time for better ETA accuracy
+                        pingTimings.push(result.response_time / 1000);
+                    } else {
+                        // For failed pings, use the actual duration (timeout period)
+                        pingTimings.push(pingDuration);
+                    }
                     if (pingTimings.length > 50) {
                         pingTimings.shift(); // Keep last 50 timings
                     }

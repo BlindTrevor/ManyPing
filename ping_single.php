@@ -96,12 +96,19 @@ function pingIP($ip) {
 function logResult($sessionId, $result) {
     $logDir = __DIR__ . '/logs';
     if (!file_exists($logDir)) {
-        @mkdir($logDir, 0755, true);
+        if (!mkdir($logDir, 0750, true)) {
+            error_log("Failed to create logs directory");
+            return false;
+        }
     }
     
     $logFile = $logDir . '/' . $sessionId . '.log';
     $logEntry = json_encode($result) . "\n";
-    @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+    if (file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX) === false) {
+        error_log("Failed to write to log file: $logFile");
+        return false;
+    }
+    return true;
 }
 
 // Main execution
