@@ -1372,12 +1372,20 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 
                 // Update or create status info
                 if (statusInfo) {
-                    statusInfo.textContent = result.host_info || '';
+                    if (result.host_info) {
+                        statusInfo.textContent = result.host_info;
+                    } else {
+                        statusInfo.remove();
+                    }
                 } else if (result.host_info) {
                     statusInfo = document.createElement('div');
                     statusInfo.className = 'status-info';
                     statusInfo.textContent = result.host_info;
-                    card.insertBefore(statusInfo, timestamp);
+                    if (timestamp) {
+                        card.insertBefore(statusInfo, timestamp);
+                    } else {
+                        card.appendChild(statusInfo);
+                    }
                 }
                 
                 // Update or create response time
@@ -1387,7 +1395,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     responseTimeEl = document.createElement('div');
                     responseTimeEl.className = 'response-time';
                     responseTimeEl.textContent = result.response_time + ' ms';
-                    card.insertBefore(responseTimeEl, timestamp);
+                    if (timestamp) {
+                        card.insertBefore(responseTimeEl, timestamp);
+                    } else {
+                        card.appendChild(responseTimeEl);
+                    }
                 }
                 
                 // Update timestamp
@@ -1429,7 +1441,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     statusInfo = document.createElement('div');
                     statusInfo.className = 'status-info';
                     statusInfo.textContent = 'No response received';
-                    card.insertBefore(statusInfo, timestamp);
+                    if (timestamp) {
+                        card.insertBefore(statusInfo, timestamp);
+                    } else {
+                        card.appendChild(statusInfo);
+                    }
                 }
                 
                 // Remove response time if present
