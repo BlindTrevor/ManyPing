@@ -384,10 +384,10 @@ $avgResponse = $responseCount > 0 ? round($totalResponse / $responseCount, 2) : 
                 
                 const ctx = canvas.getContext('2d');
                 
-                // Create gradient for background
+                // Create gradient for background (using green color for online status)
                 const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                gradient.addColorStop(0, 'rgba(34, 197, 94, 0)');
-                gradient.addColorStop(1, 'rgba(34, 197, 94, 0.3)');
+                gradient.addColorStop(0, 'rgba(0, 255, 136, 0)');
+                gradient.addColorStop(1, 'rgba(0, 255, 136, 0.2)');
                 
                 new Chart(ctx, {
                     type: 'line',
@@ -395,7 +395,7 @@ $avgResponse = $responseCount > 0 ? round($totalResponse / $responseCount, 2) : 
                         labels: responseTimes.map((_, i) => ''),
                         datasets: [{
                             data: responseTimes,
-                            borderColor: 'rgb(34, 197, 94)',
+                            borderColor: 'rgb(0, 255, 136)',
                             backgroundColor: gradient,
                             borderWidth: 2,
                             pointRadius: 0,
@@ -426,7 +426,7 @@ $avgResponse = $responseCount > 0 ? round($totalResponse / $responseCount, 2) : 
                                 displayColors: false,
                                 callbacks: {
                                     label: function(context) {
-                                        return context.parsed.y.toFixed(2) + 'ms';
+                                        return context.parsed.y + 'ms';
                                     }
                                 }
                             }
