@@ -1316,16 +1316,30 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 } else {
                     // Update existing card to scanning state
                     card.className = 'status-card scanning';
-                    card.innerHTML = `
-                        <div class="status-header">
-                            <span class="status-icon">🔄</span>
-                            <span style="color: #00d9ff; font-weight: 600;">Scanning...</span>
-                        </div>
-                        ${target.name ? `<div class="friendly-name">${escapeHtml(target.name)}</div>` : ''}
-                        <div class="ip-address">${escapeHtml(target.ip)}</div>
-                        <div class="status-info">Waiting for response...</div>
-                        <div class="timestamp">Started: ${new Date().toLocaleTimeString()}</div>
-                    `;
+                    
+                    // Update existing elements instead of replacing innerHTML
+                    let statusIcon = card.querySelector('.status-icon');
+                    let statusText = card.querySelector('.status-header span:last-child');
+                    let statusInfo = card.querySelector('.status-info');
+                    let timestamp = card.querySelector('.timestamp');
+                    
+                    if (statusIcon) statusIcon.textContent = '🔄';
+                    if (statusText) {
+                        statusText.textContent = 'Scanning...';
+                        statusText.style.color = '#00d9ff';
+                    }
+                    if (statusInfo) {
+                        statusInfo.textContent = 'Waiting for response...';
+                    }
+                    if (timestamp) {
+                        timestamp.textContent = 'Started: ' + new Date().toLocaleTimeString();
+                    }
+                    
+                    // Remove response time and chart if present
+                    const responseTimeEl = card.querySelector('.response-time');
+                    if (responseTimeEl) responseTimeEl.remove();
+                    const chartContainer = card.querySelector('.mini-chart-container');
+                    if (chartContainer) chartContainer.remove();
                 }
                 
                 scanningTiles[target.ip] = Date.now();
@@ -1339,38 +1353,100 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             delete scanningTiles[result.ip];
             
+            // Get or create reusable elements
+            let statusIcon = card.querySelector('.status-icon');
+            let statusText = card.querySelector('.status-header span:last-child');
+            let statusInfo = card.querySelector('.status-info');
+            let responseTimeEl = card.querySelector('.response-time');
+            let timestamp = card.querySelector('.timestamp');
+            
             if (result.online) {
-                // Add mini chart container for online IPs
-                const chartHTML = `<div class="mini-chart-container"><canvas class="mini-chart-canvas" id="chart-${result.ip.replace(/\./g, '-')}"></canvas></div>`;
-                
                 card.className = 'status-card online';
-                card.innerHTML = `
-                    <div class="status-header">
-                        <span class="status-icon">✅</span>
-                        <span style="color: #28a745; font-weight: 600;">Online</span>
-                    </div>
-                    ${result.name ? `<div class="friendly-name">${escapeHtml(result.name)}</div>` : ''}
-                    <div class="ip-address">${escapeHtml(result.ip)}</div>
-                    ${result.host_info ? `<div class="status-info">${escapeHtml(result.host_info)}</div>` : ''}
-                    <div class="response-time">${result.response_time} ms</div>
-                    <div class="timestamp">Last check: ${result.timestamp}</div>
-                    ${chartHTML}
-                `;
                 
-                // Update mini chart after DOM is updated
-                setTimeout(() => updateMiniChart(result.ip, result.response_time), 0);
+                // Update status header
+                if (statusIcon) statusIcon.textContent = '✅';
+                if (statusText) {
+                    statusText.textContent = 'Online';
+                    statusText.style.color = '#28a745';
+                }
+                
+                // Update or create status info
+                if (statusInfo) {
+                    statusInfo.textContent = result.host_info || '';
+                } else if (result.host_info) {
+                    statusInfo = document.createElement('div');
+                    statusInfo.className = 'status-info';
+                    statusInfo.textContent = result.host_info;
+                    card.insertBefore(statusInfo, timestamp);
+                }
+                
+                // Update or create response time
+                if (responseTimeEl) {
+                    responseTimeEl.textContent = result.response_time + ' ms';
+                } else {
+                    responseTimeEl = document.createElement('div');
+                    responseTimeEl.className = 'response-time';
+                    responseTimeEl.textContent = result.response_time + ' ms';
+                    card.insertBefore(responseTimeEl, timestamp);
+                }
+                
+                // Update timestamp
+                if (timestamp) {
+                    timestamp.textContent = 'Last check: ' + result.timestamp;
+                }
+                
+                // Add mini chart if it doesn't exist
+                const chartId = 'chart-' + result.ip.replace(/\./g, '-');
+                if (!card.querySelector('.mini-chart-container')) {
+                    const chartContainer = document.createElement('div');
+                    chartContainer.className = 'mini-chart-container';
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'mini-chart-canvas';
+                    canvas.id = chartId;
+                    chartContainer.appendChild(canvas);
+                    card.appendChild(chartContainer);
+                    
+                    // Update mini chart after DOM is updated
+                    setTimeout(() => updateMiniChart(result.ip, result.response_time), 0);
+                } else {
+                    // Chart already exists, just update it
+                    updateMiniChart(result.ip, result.response_time);
+                }
             } else {
                 card.className = 'status-card offline';
-                card.innerHTML = `
-                    <div class="status-header">
-                        <span class="status-icon">❌</span>
-                        <span style="color: #dc3545; font-weight: 600;">Offline</span>
-                    </div>
-                    ${result.name ? `<div class="friendly-name">${escapeHtml(result.name)}</div>` : ''}
-                    <div class="ip-address">${escapeHtml(result.ip)}</div>
-                    <div class="status-info">No response received</div>
-                    <div class="timestamp">Last check: ${result.timestamp}</div>
-                `;
+                
+                // Update status header
+                if (statusIcon) statusIcon.textContent = '❌';
+                if (statusText) {
+                    statusText.textContent = 'Offline';
+                    statusText.style.color = '#dc3545';
+                }
+                
+                // Update status info
+                if (statusInfo) {
+                    statusInfo.textContent = 'No response received';
+                } else {
+                    statusInfo = document.createElement('div');
+                    statusInfo.className = 'status-info';
+                    statusInfo.textContent = 'No response received';
+                    card.insertBefore(statusInfo, timestamp);
+                }
+                
+                // Remove response time if present
+                if (responseTimeEl) {
+                    responseTimeEl.remove();
+                }
+                
+                // Remove mini chart if present
+                const chartContainer = card.querySelector('.mini-chart-container');
+                if (chartContainer) {
+                    chartContainer.remove();
+                }
+                
+                // Update timestamp
+                if (timestamp) {
+                    timestamp.textContent = 'Last check: ' + result.timestamp;
+                }
             }
         }
 
@@ -1382,16 +1458,30 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             delete scanningTiles[ip];
             
             card.className = 'status-card timeout';
-            card.innerHTML = `
-                <div class="status-header">
-                    <span class="status-icon">⏩</span>
-                    <span style="color: #ff9500; font-weight: 600;">Skipped</span>
-                </div>
-                ${name ? `<div class="friendly-name">${escapeHtml(name)}</div>` : ''}
-                <div class="ip-address">${escapeHtml(ip)}</div>
-                <div class="status-info">Previously timed out - skipped in this round</div>
-                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
-            `;
+            
+            // Update existing elements
+            let statusIcon = card.querySelector('.status-icon');
+            let statusText = card.querySelector('.status-header span:last-child');
+            let statusInfo = card.querySelector('.status-info');
+            let timestamp = card.querySelector('.timestamp');
+            
+            if (statusIcon) statusIcon.textContent = '⏩';
+            if (statusText) {
+                statusText.textContent = 'Skipped';
+                statusText.style.color = '#ff9500';
+            }
+            if (statusInfo) {
+                statusInfo.textContent = 'Previously timed out - skipped in this round';
+            }
+            if (timestamp) {
+                timestamp.textContent = new Date().toLocaleTimeString();
+            }
+            
+            // Remove response time and chart if present
+            const responseTimeEl = card.querySelector('.response-time');
+            if (responseTimeEl) responseTimeEl.remove();
+            const chartContainer = card.querySelector('.mini-chart-container');
+            if (chartContainer) chartContainer.remove();
         }
 
         function updateTileError(ip, name, error) {
@@ -1402,16 +1492,30 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             delete scanningTiles[ip];
             
             card.className = 'status-card offline';
-            card.innerHTML = `
-                <div class="status-header">
-                    <span class="status-icon">⚠️</span>
-                    <span style="color: #dc3545; font-weight: 600;">Error</span>
-                </div>
-                ${name ? `<div class="friendly-name">${escapeHtml(name)}</div>` : ''}
-                <div class="ip-address">${escapeHtml(ip)}</div>
-                <div class="status-info">${escapeHtml(error)}</div>
-                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
-            `;
+            
+            // Update existing elements
+            let statusIcon = card.querySelector('.status-icon');
+            let statusText = card.querySelector('.status-header span:last-child');
+            let statusInfo = card.querySelector('.status-info');
+            let timestamp = card.querySelector('.timestamp');
+            
+            if (statusIcon) statusIcon.textContent = '⚠️';
+            if (statusText) {
+                statusText.textContent = 'Error';
+                statusText.style.color = '#dc3545';
+            }
+            if (statusInfo) {
+                statusInfo.textContent = escapeHtml(error);
+            }
+            if (timestamp) {
+                timestamp.textContent = new Date().toLocaleTimeString();
+            }
+            
+            // Remove response time and chart if present
+            const responseTimeEl = card.querySelector('.response-time');
+            if (responseTimeEl) responseTimeEl.remove();
+            const chartContainer = card.querySelector('.mini-chart-container');
+            if (chartContainer) chartContainer.remove();
         }
 
         function updateStatistics() {
@@ -1512,7 +1616,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             if (responseChart) {
                 responseChart.data.labels = labels;
                 responseChart.data.datasets = datasets;
-                responseChart.update();
+                responseChart.update('none'); // Use 'none' mode to disable animations
             } else {
                 responseChart = new Chart(ctx, {
                     type: 'line',
@@ -1523,6 +1627,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false, // Disable all animations
                         plugins: {
                             legend: {
                                 labels: {
@@ -1582,12 +1687,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             const values = ipData.data.map(d => d.value);
             const labels = ipData.data.map((d, i) => ''); // No labels for mini chart
             
-            // Destroy existing chart if it exists
+            // Update existing chart if it exists
             if (miniCharts[ip]) {
-                miniCharts[ip].destroy();
+                miniCharts[ip].data.labels = labels;
+                miniCharts[ip].data.datasets[0].data = values;
+                miniCharts[ip].update('none'); // Use 'none' mode to disable animations
+                return;
             }
             
-            // Create mini chart
+            // Create mini chart only if it doesn't exist
             const ctx = canvas.getContext('2d');
             
             // Create gradient for background
@@ -1613,6 +1721,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false, // Disable all animations
                     layout: {
                         padding: {
                             left: 0,
