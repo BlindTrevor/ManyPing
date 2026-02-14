@@ -1103,10 +1103,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             document.getElementById('resultsSection').style.display = 'block';
             const statusGrid = document.getElementById('statusGrid');
             
-            // Clear on first scan
+            // Clear status grid on first scan, but preserve historyData for charts
             if (isFirstScan) {
                 statusGrid.innerHTML = '';
-                historyData = {};
+                // Don't clear historyData - preserve it for graph continuity
                 isFirstScan = false;
                 
                 // Reset statistics
@@ -1160,6 +1160,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             delete scanningTiles[result.ip];
             
             if (result.online) {
+                // Add mini chart container for online IPs
+                const chartHTML = `<div class="mini-chart-container"><canvas class="mini-chart-canvas" id="chart-${result.ip.replace(/\./g, '-')}"></canvas></div>`;
+                
                 card.className = 'status-card online';
                 card.innerHTML = `
                     <div class="status-header">
@@ -1171,7 +1174,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     ${result.host_info ? `<div class="status-info">${escapeHtml(result.host_info)}</div>` : ''}
                     <div class="response-time">${result.response_time} ms</div>
                     <div class="timestamp">Last check: ${result.timestamp}</div>
+                    ${chartHTML}
                 `;
+                
+                // Update mini chart after DOM is updated
+                setTimeout(() => updateMiniChart(result.ip, result.response_time), 0);
             } else {
                 card.className = 'status-card offline';
                 card.innerHTML = `
@@ -1370,6 +1377,114 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     }
                 });
             }
+        }
+
+        function updateMiniChart(ip, responseTime) {
+            // Check if Chart.js is available
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+            
+            const canvasId = 'chart-' + ip.replace(/\./g, '-');
+            const canvas = document.getElementById(canvasId);
+            
+            if (!canvas) {
+                return;
+            }
+            
+            // Get history data for this IP
+            const ipData = historyData[ip];
+            if (!ipData || ipData.data.length === 0) {
+                return;
+            }
+            
+            // Prepare data for mini chart
+            const values = ipData.data.map(d => d.value);
+            const labels = ipData.data.map((d, i) => ''); // No labels for mini chart
+            
+            // Destroy existing chart if it exists
+            if (miniCharts[ip]) {
+                miniCharts[ip].destroy();
+            }
+            
+            // Create mini chart
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient for background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(34, 197, 94, 0)'); // Transparent at top
+            gradient.addColorStop(1, 'rgba(34, 197, 94, 0.3)'); // Darker green at bottom
+            
+            miniCharts[ip] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: 'rgb(34, 197, 94)', // Green line
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointRadius: 0, // No data points
+                        pointHoverRadius: 0, // No hover points
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            bottom: 0
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 8,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(2) + 'ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false,
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
+                        },
+                        y: {
+                            display: false,
+                            beginAtZero: true,
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    elements: {
+                        line: {
+                            borderWidth: 2
+                        }
+                    }
+                }
+            });
         }
 
         function escapeHtml(text) {
