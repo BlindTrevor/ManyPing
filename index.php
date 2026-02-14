@@ -747,7 +747,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
                         <span class="unit">scans</span>
                     </div>
-                    <div id="etaDisplay" class="eta-display"><span aria-label="Estimated time remaining">⏱️</span> ETA: Select repeat mode</div>
+                    <div id="etaDisplay" class="eta-display" role="status" aria-live="polite"><span aria-label="Estimated time remaining">⏱️</span> ETA: Select repeat mode</div>
                 </div>
             </div>
             
