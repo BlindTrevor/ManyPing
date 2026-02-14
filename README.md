@@ -130,6 +130,56 @@ To prevent network abuse and DDOS behavior:
 - Increase scan interval for repeated scans
 - Check network connectivity
 
+**504 Gateway Timeout / Request timeout errors:**
+- Ensure your web server (Apache/Nginx) proxy timeout is set to at least 120 seconds
+- For Apache: Set `Timeout 120` or higher in `httpd.conf` or `.htaccess`
+- For Nginx: Set `proxy_read_timeout 120s;` in your location block
+- The application sets appropriate timeout headers, but some proxies may need explicit configuration
+
+## Production Deployment
+
+When deploying behind Apache or Nginx as a reverse proxy, configure appropriate timeouts to prevent 504 errors:
+
+### Apache Configuration
+
+```apache
+# In your VirtualHost or .htaccess
+Timeout 120
+ProxyTimeout 120
+
+<Location /mp/>
+    # Keep connections alive for long-running requests
+    SetEnv proxy-nokeepalive 0
+</Location>
+```
+
+### Nginx Configuration
+
+```nginx
+location /mp/ {
+    proxy_pass http://backend;
+    proxy_read_timeout 120s;
+    proxy_connect_timeout 120s;
+    proxy_send_timeout 120s;
+    
+    # Disable buffering for real-time response
+    proxy_buffering off;
+    
+    # Keep connection alive
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+}
+```
+
+### PHP-FPM Configuration (Optional)
+
+If using PHP-FPM, you may also need to adjust:
+
+```ini
+; In php-fpm pool configuration (e.g., /etc/php-fpm.d/www.conf)
+request_terminate_timeout = 120
+```
+
 ## License
 
 MIT License - Feel free to use and modify for your needs

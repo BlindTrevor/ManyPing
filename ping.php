@@ -6,6 +6,20 @@
  * Uses sessions for rate limiting - no persistent storage
  */
 
+// Configure PHP execution and session settings
+// Set execution time limit to allow for long-running scans
+// MAX_IPS_PER_SCAN (50) * PING_TIMEOUT (2s) = 100s minimum + overhead
+ini_set('max_execution_time', '120'); // Allow up to 2 minutes for scan completion
+
+// Disable output buffering to prevent early timeouts
+// This ensures the script can run without proxy timeouts
+if (function_exists('apache_setenv')) {
+    apache_setenv('no-gzip', '1');
+}
+ini_set('output_buffering', 'Off');
+ini_set('implicit_flush', '1');
+ob_implicit_flush(true);
+
 // Configure session to expire after 60 minutes of inactivity
 ini_set('session.gc_maxlifetime', 3600); // 60 minutes
 session_set_cookie_params(3600); // Cookie expires in 60 minutes
@@ -23,11 +37,19 @@ if (!isset($_SESSION['created'])) {
 
 header('Content-Type: application/json');
 
+// Set headers to prevent proxy timeouts
+// Inform proxies that this is a long-running request
+header('X-Accel-Buffering: no'); // Disable nginx buffering
+header('Connection: keep-alive'); // Keep connection alive during processing
+// Set a reasonable timeout expectation for proxies (120 seconds)
+header('Keep-Alive: timeout=120, max=1');
+
 // Rate limiting configuration
 const MAX_IPS_PER_SCAN = 50;
 const PING_TIMEOUT = 2; // seconds
 const MAX_CONCURRENT = 10; // Maximum concurrent ping processes
 const MIN_SCAN_INTERVAL = 5; // Minimum seconds between scans
+const FLUSH_INTERVAL = 5; // Flush output every N results to keep connection alive
 
 /**
  * Parse input and extract IPs with optional names
@@ -180,6 +202,15 @@ function pingInBatches($targets) {
             $result = pingIP($target['ip']);
             $result['name'] = $target['name'];
             $results[] = $result;
+            
+            // Flush output periodically to keep connection alive and prevent proxy timeouts
+            // This sends data to the web server, preventing Apache/Nginx from timing out
+            if (count($results) > 0 && count($results) % FLUSH_INTERVAL == 0) {
+                flush();
+                if (function_exists('ob_flush')) {
+                    @ob_flush();
+                }
+            }
         }
     }
     
