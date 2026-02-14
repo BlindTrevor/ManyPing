@@ -1315,8 +1315,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     statusGrid.appendChild(card);
                 } else {
                     // Card already exists - don't reset to scanning state
-                    // Just keep the existing state and let updateTileWithResult update it
-                    // This prevents online tiles from flickering back to "scanning"
+                    // The tile will be updated by updateTileWithResult() when new results arrive
+                    // If the host becomes unreachable, updateTileError() will update it to offline
+                    // This prevents online tiles from flickering back to "scanning" on each scan
                 }
                 
                 scanningTiles[target.ip] = Date.now();
