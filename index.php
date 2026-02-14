@@ -228,7 +228,8 @@
             height: 100%;
             width: var(--progress, 0%);
             background: rgba(0, 255, 136, 0.2);
-            transition: width 0.3s ease-out;
+            transition: width 0.15s ease-out;
+            will-change: width;
             z-index: 0;
         }
         .status-indicator.scanning > * {
