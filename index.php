@@ -1082,6 +1082,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 displayResults(data.results);
                 updateChart(data.results);
                 
+                // Schedule a timeout check after SCAN_TIMEOUT_MS to catch any stuck tiles
+                setTimeout(() => {
+                    checkForTimedOutTiles();
+                }, SCAN_TIMEOUT_MS);
+                
                 // If one-time scan, reset UI state after completion
                 if (!scanInterval) {
                     setScanningState(false);
