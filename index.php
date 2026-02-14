@@ -964,11 +964,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         function displayScanningTiles(ips) {
             document.getElementById('resultsSection').style.display = 'block';
             const statusGrid = document.getElementById('statusGrid');
-            const tileScanStartTime = Date.now();
+            const currentScanStartTime = Date.now();
             
             // Track all IPs being scanned with their start time
             ips.forEach(ipObj => {
-                scanningTiles[ipObj.ip] = tileScanStartTime;
+                scanningTiles[ipObj.ip] = currentScanStartTime;
             });
             
             // Only clear and show blue tiles on first scan
@@ -1082,10 +1082,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 displayResults(data.results);
                 updateChart(data.results);
                 
-                // Schedule a timeout check after SCAN_TIMEOUT_MS to catch any stuck tiles
+                // Schedule a timeout check after SCAN_TIMEOUT_MS plus a small buffer to catch any stuck tiles
+                // All tiles in a scan batch share the same start time, so a single check is sufficient
                 setTimeout(() => {
                     checkForTimedOutTiles();
-                }, SCAN_TIMEOUT_MS);
+                }, SCAN_TIMEOUT_MS + 500); // Add 500ms buffer to ensure timeout threshold is exceeded
                 
                 // If one-time scan, reset UI state after completion
                 if (!scanInterval) {
