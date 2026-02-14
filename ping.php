@@ -49,6 +49,7 @@ const MAX_IPS_PER_SCAN = 50;
 const PING_TIMEOUT = 2; // seconds
 const MAX_CONCURRENT = 10; // Maximum concurrent ping processes
 const MIN_SCAN_INTERVAL = 5; // Minimum seconds between scans
+const FLUSH_INTERVAL = 5; // Flush output every N results to keep connection alive
 
 /**
  * Parse input and extract IPs with optional names
@@ -204,7 +205,7 @@ function pingInBatches($targets) {
             
             // Flush output periodically to keep connection alive and prevent proxy timeouts
             // This sends data to the web server, preventing Apache/Nginx from timing out
-            if (count($results) % 5 == 0) {
+            if (count($results) > 0 && count($results) % FLUSH_INTERVAL == 0) {
                 flush();
                 if (function_exists('ob_flush')) {
                     @ob_flush();
