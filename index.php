@@ -1305,7 +1305,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     card.innerHTML = `
                         <div class="status-header">
                             <span class="status-icon">🔄</span>
-                            <span style="color: #00d9ff; font-weight: 600;">Scanning...</span>
+                            <span class="status-text" style="color: #00d9ff; font-weight: 600;">Scanning...</span>
                         </div>
                         ${target.name ? `<div class="friendly-name">${escapeHtml(target.name)}</div>` : ''}
                         <div class="ip-address">${escapeHtml(target.ip)}</div>
@@ -1319,7 +1319,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     
                     // Update existing elements instead of replacing innerHTML
                     let statusIcon = card.querySelector('.status-icon');
-                    let statusText = card.querySelector('.status-header span:last-child');
+                    let statusText = card.querySelector('.status-text');
                     let statusInfo = card.querySelector('.status-info');
                     let timestamp = card.querySelector('.timestamp');
                     
@@ -1355,7 +1355,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             // Get or create reusable elements
             let statusIcon = card.querySelector('.status-icon');
-            let statusText = card.querySelector('.status-header span:last-child');
+            let statusText = card.querySelector('.status-text');
             let statusInfo = card.querySelector('.status-info');
             let responseTimeEl = card.querySelector('.response-time');
             let timestamp = card.querySelector('.timestamp');
@@ -1376,6 +1376,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         statusInfo.textContent = result.host_info;
                     } else {
                         statusInfo.remove();
+                        statusInfo = null; // Clear reference after removal
                     }
                 } else if (result.host_info) {
                     statusInfo = document.createElement('div');
@@ -1477,7 +1478,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             // Update existing elements
             let statusIcon = card.querySelector('.status-icon');
-            let statusText = card.querySelector('.status-header span:last-child');
+            let statusText = card.querySelector('.status-text');
             let statusInfo = card.querySelector('.status-info');
             let timestamp = card.querySelector('.timestamp');
             
@@ -1511,7 +1512,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             // Update existing elements
             let statusIcon = card.querySelector('.status-icon');
-            let statusText = card.querySelector('.status-header span:last-child');
+            let statusText = card.querySelector('.status-text');
             let statusInfo = card.querySelector('.status-info');
             let timestamp = card.querySelector('.timestamp');
             
