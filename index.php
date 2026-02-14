@@ -463,6 +463,30 @@
             outline: none;
             border-color: #00d9ff;
         }
+        .control-section {
+            background: rgba(0, 217, 255, 0.03);
+            border: 1px solid rgba(0, 217, 255, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .control-section-title {
+            font-size: 12px;
+            color: #00d9ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
         input[type="number"] {
             background: rgba(10, 14, 26, 0.8);
             color: #00ff88;
@@ -535,39 +559,42 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         Repeat Every
                     </label>
                     <div class="interval-control">
-                        <input type="number" id="scanInterval" value="10" min="5" max="300">
+                        <input type="number" id="scanInterval" value="5" min="5" max="300">
                         <span>seconds</span>
                     </div>
                 </div>
                 
-                <div style="margin-top:10px;">
-                    <label style="font-size: 14px; font-weight: normal;">Stagger Interval (delay between each ping)</label>
-                    <div class="scan-mode">
+                <div class="control-section" style="margin-top:15px;">
+                    <div class="control-section-title">⚙️ Ping Configuration</div>
+                    <div class="control-row">
+                        <label style="font-size: 13px; font-weight: normal; margin: 0; min-width: 140px;">Stagger Interval:</label>
                         <div class="interval-control">
-                            <input type="number" id="staggerInterval" value="0" min="0" max="10" step="0.1">
+                            <input type="number" id="staggerInterval" value="1" min="0" max="10" step="0.1">
                             <span>seconds</span>
                         </div>
                     </div>
-                    <div class="help-text">Set to 0 for simultaneous pings, or a delay (e.g., 0.5) to stagger pings</div>
+                    <div class="help-text">Delay between each ping. Use 0 for simultaneous pings or 1 for sequential pings.</div>
                 </div>
                 
-                <div id="repeatOptions" style="display:none; margin-top:10px;">
-                    <label style="font-size: 14px; font-weight: normal;">Number of Scans</label>
-                    <div class="scan-mode">
-                        <label>
-                            <input type="radio" name="scanCount" value="continuous" checked>
-                            Continuous
-                        </label>
-                        <label>
-                            <input type="radio" name="scanCount" value="limited">
-                            Limited to
-                        </label>
-                        <div class="interval-control">
-                            <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
-                            <span>scans</span>
+                <div id="repeatOptions" style="display:none; margin-top:15px;">
+                    <div class="control-section">
+                        <div class="control-section-title">🔄 Repeat Configuration</div>
+                        <div class="scan-mode" style="margin-bottom: 10px;">
+                            <label>
+                                <input type="radio" name="scanCount" value="continuous" checked>
+                                Continuous
+                            </label>
+                            <label>
+                                <input type="radio" name="scanCount" value="limited">
+                                Limited to
+                            </label>
+                            <div class="interval-control">
+                                <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
+                                <span>scans</span>
+                            </div>
                         </div>
+                        <div id="etaDisplay" style="margin-top:5px; font-size:12px; color:#667eea;"></div>
                     </div>
-                    <div id="etaDisplay" style="margin-top:5px; font-size:12px; color:#667eea;"></div>
                 </div>
             </div>
             
