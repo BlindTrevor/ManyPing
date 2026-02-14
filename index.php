@@ -825,9 +825,16 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 const ipPart = parts[0];
                 const name = parts.slice(1).join(' ');
                 
-                // Handle CIDR notation (simplified - just show as single entry)
+                // Handle CIDR notation - expand to individual IPs
                 if (ipPart.includes('/')) {
-                    ips.push({ ip: ipPart, name: name });
+                    const expandedIPs = expandCIDR(ipPart);
+                    for (let ip of expandedIPs) {
+                        if (ips.length < MAX_IPS) {
+                            ips.push({ ip: ip, name: name });
+                        } else {
+                            break;
+                        }
+                    }
                 }
                 // Handle range
                 else if (ipPart.match(/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/)) {
@@ -845,6 +852,50 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 }
                 
                 if (ips.length >= MAX_IPS) break;
+            }
+            
+            return ips;
+        }
+
+        // Expand CIDR notation to individual IPs
+        // Limits to reasonable subnet sizes to prevent abuse
+        function expandCIDR(cidr) {
+            const parts = cidr.split('/');
+            if (parts.length !== 2) {
+                return [cidr]; // Invalid CIDR, return as-is
+            }
+            
+            const ip = parts[0];
+            let prefix = parseInt(parts[1]);
+            
+            // Limit to /24 or smaller (max 256 IPs) to prevent abuse
+            if (prefix < 24) {
+                prefix = 24;
+            }
+            
+            // Convert IP to long
+            const ipParts = ip.split('.').map(p => parseInt(p));
+            if (ipParts.length !== 4 || ipParts.some(p => isNaN(p) || p < 0 || p > 255)) {
+                return [ip]; // Invalid IP, return as-is
+            }
+            
+            const ipLong = (ipParts[0] << 24) + (ipParts[1] << 16) + (ipParts[2] << 8) + ipParts[3];
+            
+            // Calculate network mask
+            const mask = -1 << (32 - prefix);
+            const network = (ipLong & mask) >>> 0;
+            const broadcast = (network | ~mask) >>> 0;
+            
+            const ips = [];
+            const MAX_IPS = 50; // Limit expansion
+            
+            // Generate IPs from network+1 to broadcast-1
+            for (let i = network + 1; i < broadcast && ips.length < MAX_IPS; i++) {
+                const a = (i >>> 24) & 0xFF;
+                const b = (i >>> 16) & 0xFF;
+                const c = (i >>> 8) & 0xFF;
+                const d = i & 0xFF;
+                ips.push(`${a}.${b}.${c}.${d}`);
             }
             
             return ips;
