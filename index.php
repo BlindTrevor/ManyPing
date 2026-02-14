@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ManyPing - Concurrent IP Monitor</title>
+    <link rel="icon" type="image/png" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300d9ff'/></svg>">
     <style>
         * {
             margin: 0;
@@ -539,6 +540,17 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     </div>
                 </div>
                 
+                <div style="margin-top:10px;">
+                    <label style="font-size: 14px; font-weight: normal;">Stagger Interval (delay between each ping)</label>
+                    <div class="scan-mode">
+                        <div class="interval-control">
+                            <input type="number" id="staggerInterval" value="0" min="0" max="10" step="0.1">
+                            <span>seconds</span>
+                        </div>
+                    </div>
+                    <div class="help-text">Set to 0 for simultaneous pings, or a delay (e.g., 0.5) to stagger pings</div>
+                </div>
+                
                 <div id="repeatOptions" style="display:none; margin-top:10px;">
                     <label style="font-size: 14px; font-weight: normal;">Number of Scans</label>
                     <div class="scan-mode">
@@ -563,6 +575,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 <button id="toggleBtn" class="btn-toggle" onclick="toggleScan()">[ >_ EXECUTE SCAN ]</button>
                 <button class="btn-danger" onclick="clearResults()">[ ✕ CLEAR ]</button>
                 <div id="statusIndicator" style="display: none;"></div>
+            </div>
+            
+            <div id="logLinkContainer" style="display:none; margin-top:10px; padding:10px; background:rgba(0,217,255,0.1); border-radius:6px; border:1px solid rgba(0,217,255,0.3);">
+                <span style="color:#00d9ff; font-weight:600;">📋 Session Log:</span>
+                <a id="logLink" href="#" target="_blank" style="color:#00ff88; margin-left:10px;">View Results</a>
             </div>
         </div>
         
@@ -604,29 +621,62 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
+        // Global state variables
         let scanInterval = null;
         let countdownInterval = null;
         let responseChart = null;
         let historyData = {};
-        let miniCharts = {}; // Store mini chart instances
+        let miniCharts = {};
         let lastScanTime = 0;
-        let isFirstScan = true; // Track if this is the first scan
-        let nextScanTime = null; // Track when next scan will occur
-        let completedScans = 0; // Track number of completed scans
-        let totalScans = 0; // Total number of scans to perform (0 = continuous)
-        let scanStartTime = null; // Track when scanning started
-        let progressInterval = null; // Track progress bar update interval
-        const RATE_LIMIT_MS = 5000; // 5 seconds between scans
-        let scanningTiles = {}; // Track when each tile starts scanning
-        const SCAN_TIMEOUT_MS = 10000; // 10 seconds timeout for individual tile scans
+        let isFirstScan = true;
+        let nextScanTime = null;
+        let completedScans = 0;
+        let totalScans = 0;
+        let scanStartTime = null;
+        let progressInterval = null;
+        const RATE_LIMIT_MS = 5000;
+        let scanningTiles = {};
+        const SCAN_TIMEOUT_MS = 10000;
+        let currentSessionId = null;
+        let pingTimings = []; // Track ping durations for ETA calculation
+        let timedOutIPs = new Set(); // Track IPs that timed out
+        let isScanning = false;
+        
+        // Favicon management
+        function updateFavicon(status) {
+            const favicon = document.getElementById('favicon');
+            if (status === 'running') {
+                // Red favicon for running
+                favicon.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23dc3545'/></svg>";
+            } else if (status === 'complete') {
+                // Green favicon for complete
+                favicon.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2328a745'/></svg>";
+            } else {
+                // Blue favicon for idle
+                favicon.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300d9ff'/></svg>";
+            }
+        }
+        
+        // Generate unique session ID
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Show log link
+        function showLogLink(sessionId) {
+            const container = document.getElementById('logLinkContainer');
+            const link = document.getElementById('logLink');
+            link.href = 'view_log.php?session=' + sessionId;
+            container.style.display = 'block';
+        }
 
-        // Check if Chart.js loaded successfully
+        // Initialize on load
         window.addEventListener('load', function() {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available');
             }
             
-            // Set up event listeners for scan mode and count options
+            // Set up event listeners
             document.querySelectorAll('input[name="scanMode"]').forEach(radio => {
                 radio.addEventListener('change', function() {
                     const repeatOptions = document.getElementById('repeatOptions');
@@ -653,6 +703,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             document.getElementById('scanInterval').addEventListener('input', updateETA);
             document.getElementById('scanCountInput').addEventListener('input', updateETA);
+            document.getElementById('staggerInterval').addEventListener('input', updateETA);
         });
         
         function updateETA() {
@@ -667,80 +718,208 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             } else {
                 const scans = parseInt(document.getElementById('scanCountInput').value);
                 const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value));
-                const totalSeconds = scans * interval;
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
+                const staggerInterval = parseFloat(document.getElementById('staggerInterval').value) || 0;
                 
-                if (completedScans > 0) {
-                    // During scanning
+                // Calculate average ping time
+                let avgPingTime = 2; // Default estimate
+                if (pingTimings.length > 0) {
+                    avgPingTime = pingTimings.reduce((a, b) => a + b, 0) / pingTimings.length;
+                }
+                
+                // Estimate time per scan based on number of IPs
+                const ipInput = document.getElementById('ipInput').value.trim();
+                const ips = parseIPInput(ipInput);
+                const timePerScan = (ips.length * (avgPingTime + staggerInterval));
+                
+                if (completedScans > 0 && totalScans > 0) {
                     const remaining = totalScans - completedScans;
-                    const remainingSeconds = remaining * interval;
+                    const remainingSeconds = Math.ceil(remaining * (timePerScan + interval));
                     const remMinutes = Math.floor(remainingSeconds / 60);
                     const remSeconds = remainingSeconds % 60;
-                    etaDisplay.textContent = `⏱️ ETA: ${remMinutes}m ${remSeconds}s remaining (${completedScans}/${totalScans} scans completed)`;
+                    etaDisplay.textContent = `⏱️ ETA: ${remMinutes}m ${remSeconds}s remaining (${completedScans}/${totalScans} scans, avg ${avgPingTime.toFixed(2)}s/ping)`;
                 } else {
-                    // Before scanning
-                    etaDisplay.textContent = `⏱️ ETA: ${minutes}m ${seconds}s total for ${scans} scans`;
+                    const totalSeconds = Math.ceil(scans * (timePerScan + interval));
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    etaDisplay.textContent = `⏱️ ETA: ~${minutes}m ${seconds}s total for ${scans} scans`;
                 }
             }
         }
-        
+
         function setScanningState(scanning) {
+            isScanning = scanning;
             const ipInput = document.getElementById('ipInput');
             const toggleBtn = document.getElementById('toggleBtn');
             const statusIndicator = document.getElementById('statusIndicator');
             
             if (scanning) {
-                // Set readonly and update button to stop mode
                 ipInput.readOnly = true;
                 toggleBtn.classList.add('scanning');
                 toggleBtn.innerHTML = '[ ■ TERMINATE ]';
-                
-                // Show scanning status
                 statusIndicator.className = 'status-indicator scanning';
                 statusIndicator.innerHTML = '<div class="spinner-small"></div><span>Scan in progress</span>';
                 statusIndicator.style.display = 'inline-flex';
+                updateFavicon('running');
             } else {
-                // Remove readonly and reset button to scan mode
                 ipInput.readOnly = false;
                 toggleBtn.classList.remove('scanning');
                 toggleBtn.innerHTML = '[ >_ EXECUTE SCAN ]';
-                
-                // Hide status indicator
                 statusIndicator.style.display = 'none';
+                updateFavicon('idle');
             }
         }
         
         function toggleScan() {
-            // If currently scanning, stop it
-            if (scanInterval || document.getElementById('toggleBtn').classList.contains('scanning')) {
+            if (scanInterval || isScanning) {
                 stopScan();
             } else {
-                // Otherwise start scanning
                 startScan();
             }
         }
         
+        function stopScan() {
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            
+            const toggleBtn = document.getElementById('toggleBtn');
+            toggleBtn.style.removeProperty('--progress');
+            
+            isFirstScan = true;
+            completedScans = 0;
+            totalScans = 0;
+            updateETA();
+            setScanningState(false);
+        }
+
+        function clearResults() {
+            stopScan();
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('statusGrid').innerHTML = '';
+            document.getElementById('logLinkContainer').style.display = 'none';
+            historyData = {};
+            scanningTiles = {};
+            timedOutIPs.clear();
+            pingTimings = [];
+            if (responseChart) {
+                responseChart.destroy();
+                responseChart = null;
+            }
+        }
+
+        function parseIPInput(input) {
+            const lines = input.split('\n');
+            const ips = [];
+            const MAX_IPS = 50;
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#')) continue;
+                
+                const parts = line.split(/\s+/);
+                const ipPart = parts[0];
+                const name = parts.slice(1).join(' ');
+                
+                // Handle CIDR notation - expand to individual IPs
+                if (ipPart.includes('/')) {
+                    const expandedIPs = expandCIDR(ipPart);
+                    for (let ip of expandedIPs) {
+                        if (ips.length < MAX_IPS) {
+                            ips.push({ ip: ip, name: name });
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                // Handle range
+                else if (ipPart.match(/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/)) {
+                    const match = ipPart.match(/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/);
+                    const base = match[1];
+                    const start = parseInt(match[2]);
+                    const end = parseInt(match[3]);
+                    for (let i = start; i <= end && ips.length < MAX_IPS; i++) {
+                        ips.push({ ip: base + i, name: name });
+                    }
+                }
+                // Single IP
+                else {
+                    ips.push({ ip: ipPart, name: name });
+                }
+                
+                if (ips.length >= MAX_IPS) break;
+            }
+            
+            return ips;
+        }
+
+        // Expand CIDR notation to individual IPs
+        // Limits to reasonable subnet sizes to prevent abuse
+        function expandCIDR(cidr) {
+            const parts = cidr.split('/');
+            if (parts.length !== 2) {
+                return [cidr]; // Invalid CIDR, return as-is
+            }
+            
+            const ip = parts[0];
+            let prefix = parseInt(parts[1]);
+            
+            // Limit to /24 or smaller (max 256 IPs) to prevent abuse
+            if (prefix < 24) {
+                prefix = 24;
+            }
+            
+            // Convert IP to long
+            const ipParts = ip.split('.').map(p => parseInt(p));
+            if (ipParts.length !== 4 || ipParts.some(p => isNaN(p) || p < 0 || p > 255)) {
+                return [ip]; // Invalid IP, return as-is
+            }
+            
+            const ipLong = (ipParts[0] << 24) + (ipParts[1] << 16) + (ipParts[2] << 8) + ipParts[3];
+            
+            // Calculate network mask
+            const mask = -1 << (32 - prefix);
+            const network = (ipLong & mask) >>> 0;
+            const broadcast = (network | ~mask) >>> 0;
+            
+            const ips = [];
+            const MAX_IPS = 50; // Limit expansion
+            
+            // Generate IPs from network+1 to broadcast-1
+            for (let i = network + 1; i < broadcast && ips.length < MAX_IPS; i++) {
+                const a = (i >>> 24) & 0xFF;
+                const b = (i >>> 16) & 0xFF;
+                const c = (i >>> 8) & 0xFF;
+                const d = i & 0xFF;
+                ips.push(`${a}.${b}.${c}.${d}`);
+            }
+            
+            return ips;
+        }
+
         function showCompletionStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             statusIndicator.className = 'status-indicator complete';
             statusIndicator.innerHTML = '✓ Scan completed';
             statusIndicator.style.display = 'inline-flex';
+            updateFavicon('complete');
             
-            // Hide after 3 seconds
             setTimeout(() => {
                 statusIndicator.style.display = 'none';
+                updateFavicon('idle');
             }, 3000);
         }
         
         function showErrorStatus(message) {
             const statusIndicator = document.getElementById('statusIndicator');
             statusIndicator.className = 'status-indicator error';
-            // Use textContent to prevent XSS
             statusIndicator.textContent = '⚠ ' + message;
             statusIndicator.style.display = 'inline-flex';
             
-            // Hide after 5 seconds
             setTimeout(() => {
                 statusIndicator.style.display = 'none';
             }, 5000);
@@ -755,21 +934,14 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
 
             const now = Date.now();
             if (now - lastScanTime < RATE_LIMIT_MS) {
-                // Calculate wait time and automatically wait instead of alerting
                 const waitTime = Math.ceil((RATE_LIMIT_MS - (now - lastScanTime)) / 1000);
-                
                 console.log(`Rate limit: waiting ${waitTime} seconds...`);
-                
-                // Automatically retry after waiting
-                setTimeout(() => {
-                    startScan();
-                }, (RATE_LIMIT_MS - (now - lastScanTime)));
+                setTimeout(() => startScan(), RATE_LIMIT_MS - (now - lastScanTime));
                 return;
             }
 
             const scanMode = document.querySelector('input[name="scanMode"]:checked').value;
             
-            // Stop any existing scan and countdown
             if (scanInterval) {
                 clearInterval(scanInterval);
                 scanInterval = null;
@@ -779,230 +951,39 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 countdownInterval = null;
             }
 
-            // Mark as first scan and reset counters
             isFirstScan = true;
             completedScans = 0;
             scanStartTime = Date.now();
+            currentSessionId = generateSessionId();
+            timedOutIPs.clear();
+            pingTimings = [];
             
-            // Set scanning state
             setScanningState(true);
-            
-            // Perform initial scan
             performScan();
 
-            // Set up repeat if needed
             if (scanMode === 'repeat') {
-                const intervalSeconds = Math.max(5, parseInt(document.getElementById('scanInterval').value));
-                const interval = intervalSeconds * 1000;
-                
                 const scanCountMode = document.querySelector('input[name="scanCount"]:checked').value;
-                if (scanCountMode === 'continuous') {
-                    totalScans = 0; // 0 means continuous
-                } else {
+                if (scanCountMode === 'limited') {
                     totalScans = parseInt(document.getElementById('scanCountInput').value);
-                    // Start progress bar only if not continuous
-                    startProgressBar(intervalSeconds);
+                } else {
+                    totalScans = 0;
                 }
                 
-                updateETA();
-                
+                const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value));
                 scanInterval = setInterval(() => {
-                    // Check if we've reached the scan limit
                     if (totalScans > 0 && completedScans >= totalScans) {
                         stopScan();
                         showCompletionStatus();
                         return;
                     }
-                    
-                    isFirstScan = false; // Mark subsequent scans as not first
-                    nextScanTime = intervalSeconds;
                     performScan();
-                }, interval);
+                }, interval * 1000);
+            } else {
+                totalScans = 1;
             }
+            
+            showLogLink(currentSessionId);
         }
-
-        function startProgressBar(intervalSeconds) {
-            // Clear any existing progress interval
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-            }
-            
-            // Don't show progress bar for continuous scanning
-            if (totalScans === 0) return;
-            
-            const toggleBtn = document.getElementById('toggleBtn');
-            const totalTime = intervalSeconds * 1000; // Convert to ms
-            const updateFrequency = 100; // Update every 100ms
-            let elapsed = 0;
-            
-            progressInterval = setInterval(() => {
-                elapsed += updateFrequency;
-                const progress = Math.min((elapsed / totalTime) * 100, 100);
-                toggleBtn.style.setProperty('--progress', progress + '%');
-                
-                // Reset when cycle completes
-                if (elapsed >= totalTime) {
-                    elapsed = 0;
-                }
-            }, updateFrequency);
-        }
-
-        function stopScan() {
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-            }
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                countdownInterval = null;
-            }
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-            }
-            
-            const toggleBtn = document.getElementById('toggleBtn');
-            toggleBtn.style.removeProperty('--progress');
-            
-            isFirstScan = true; // Reset for next start
-            completedScans = 0; // Reset counter
-            totalScans = 0;
-            updateETA();
-            
-            // Reset UI state
-            setScanningState(false);
-        }
-
-        function clearResults() {
-            stopScan();
-            document.getElementById('resultsSection').style.display = 'none';
-            document.getElementById('statusGrid').innerHTML = '';
-            historyData = {};
-            scanningTiles = {}; // Clear scanning tiles tracking
-            if (responseChart) {
-                responseChart.destroy();
-                responseChart = null;
-            }
-        }
-
-        // Parse IP input to extract individual IPs for display
-        function parseIPInput(input) {
-            const lines = input.split('\n');
-            const ips = [];
-            const MAX_IPS = 50; // Match backend limit
-            
-            for (let line of lines) {
-                line = line.trim();
-                if (!line || line.startsWith('#')) continue;
-                
-                // Stop if we've reached the max
-                if (ips.length >= MAX_IPS) break;
-                
-                const parts = line.split(/\s+/);
-                const ipPart = parts[0];
-                const name = parts.slice(1).join(' ') || '';
-                
-                // Check if it's a CIDR notation
-                if (ipPart.includes('/')) {
-                    const cidrIPs = expandCIDR(ipPart);
-                    cidrIPs.forEach(ip => {
-                        if (ips.length < MAX_IPS) {
-                            ips.push({ ip, name });
-                        }
-                    });
-                }
-                // Check if it's a range
-                else if (/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/.test(ipPart)) {
-                    const match = ipPart.match(/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/);
-                    const base = match[1];
-                    const start = parseInt(match[2]);
-                    const end = parseInt(match[3]);
-                    
-                    for (let i = start; i <= end && ips.length < MAX_IPS; i++) {
-                        ips.push({ ip: base + i, name });
-                    }
-                }
-                // Single IP
-                else {
-                    if (ips.length < MAX_IPS) {
-                        ips.push({ ip: ipPart, name });
-                    }
-                }
-            }
-            
-            return ips;
-        }
-
-        // Simple CIDR expansion for frontend display (limited to prevent abuse)
-        function expandCIDR(cidr) {
-            const [ip, prefix] = cidr.split('/');
-            const prefixNum = parseInt(prefix);
-            
-            // Limit to /24 or smaller
-            if (prefixNum < 24) {
-                return [ip]; // Just show the base IP if too large
-            }
-            
-            const parts = ip.split('.').map(p => parseInt(p));
-            const ips = [];
-            
-            // Simple expansion for /24 to /32
-            const hostBits = 32 - prefixNum;
-            const numHosts = Math.min(Math.pow(2, hostBits) - 2, 50); // Limit to 50
-            
-            for (let i = 1; i <= numHosts; i++) {
-                const newParts = [...parts];
-                newParts[3] = (parts[3] + i) % 256;
-                ips.push(newParts.join('.'));
-            }
-            
-            return ips.length > 0 ? ips : [ip];
-        }
-
-        // Display scanning tiles immediately when scan starts (only on first scan)
-        function displayScanningTiles(ips) {
-            document.getElementById('resultsSection').style.display = 'block';
-            const statusGrid = document.getElementById('statusGrid');
-            const currentScanStartTime = Date.now();
-            
-            // Track all IPs being scanned with their start time
-            ips.forEach(ipObj => {
-                scanningTiles[ipObj.ip] = currentScanStartTime;
-            });
-            
-            // Only clear and show blue tiles on first scan
-            if (isFirstScan) {
-                statusGrid.innerHTML = '';
-                
-                ips.forEach(ipObj => {
-                    const card = document.createElement('div');
-                    card.className = 'status-card scanning';
-                    card.setAttribute('data-ip', ipObj.ip);
-                    
-                    card.innerHTML = `
-                        <div class="status-header">
-                            <span class="status-icon">⏳</span>
-                            <span style="color: #667eea; font-weight: 600;">Scanning...</span>
-                        </div>
-                        ${ipObj.name ? `<div class="friendly-name">${ipObj.name}</div>` : ''}
-                        <div class="ip-address">${ipObj.ip}</div>
-                        <div class="status-info">Waiting for response...</div>
-                    `;
-                    
-                    statusGrid.appendChild(card);
-                });
-                
-                // Update stats to show scanning state
-                document.getElementById('totalCount').textContent = ips.length;
-                document.getElementById('onlineCount').textContent = '0';
-                document.getElementById('offlineCount').textContent = '0';
-                document.getElementById('avgResponse').textContent = '--';
-            }
-            // On subsequent scans, tiles already exist - just leave them as is
-        }
-        
-        // Start countdown on individual tiles
 
         async function performScan() {
             const now = Date.now();
@@ -1012,253 +993,390 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             lastScanTime = now;
 
             const ipInput = document.getElementById('ipInput').value.trim();
-            
-            // Parse IPs and display scanning tiles immediately
             const ips = parseIPInput(ipInput);
+            
             if (ips.length === 0) {
                 showErrorStatus('No valid IPs to scan');
                 return;
             }
             
             displayScanningTiles(ips);
+            
+            const staggerInterval = parseFloat(document.getElementById('staggerInterval').value) || 0;
+            const staggerMs = staggerInterval * 1000;
+            
+            // Ping each IP with staggered timing
+            for (let i = 0; i < ips.length; i++) {
+                const target = ips[i];
+                
+                // Skip if timed out previously
+                if (timedOutIPs.has(target.ip)) {
+                    updateTileSkipped(target.ip, target.name);
+                    continue;
+                }
+                
+                // Delay for staggered pings
+                if (i > 0 && staggerMs > 0) {
+                    await new Promise(resolve => setTimeout(resolve, staggerMs));
+                }
+                
+                // Ping asynchronously without waiting for completion
+                pingSingleIP(target.ip, target.name);
+            }
+            
+            // Update scan counter
+            completedScans++;
+            updateETA();
+            
+            // Check if this was a one-time scan
+            if (!scanInterval && completedScans >= 1) {
+                // Wait a bit for all pings to complete before showing completion
+                setTimeout(() => {
+                    setScanningState(false);
+                    showCompletionStatus();
+                }, SCAN_TIMEOUT_MS + 1000);
+            }
+        }
 
+        async function pingSingleIP(ip, name) {
+            const startTime = Date.now();
+            
             try {
-                const response = await fetch('ping.php', {
+                const response = await fetch('ping_single.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: 'ips=' + encodeURIComponent(ipInput)
+                    body: `ip=${encodeURIComponent(ip)}&name=${encodeURIComponent(name)}&session_id=${encodeURIComponent(currentSessionId)}`
                 });
-
-                // Check if response is ok
-                if (!response.ok) {
-                    showErrorStatus(`Server error: ${response.status} ${response.statusText}`);
-                    if (!scanInterval) {
-                        setScanningState(false);
+                
+                const data = await response.json();
+                const endTime = Date.now();
+                const pingDuration = (endTime - startTime) / 1000;
+                
+                if (data.success && data.result) {
+                    const result = data.result;
+                    
+                    // Track ping timing for ETA calculation using actual ping response time
+                    if (result.online && result.response_time) {
+                        // Use actual ping response time for better ETA accuracy
+                        pingTimings.push(result.response_time / 1000);
+                    } else {
+                        // For failed pings, use the actual duration (timeout period)
+                        pingTimings.push(pingDuration);
                     }
-                    return;
-                }
-                
-                // Read response text once
-                const responseText = await response.text();
-                
-                // Try to parse JSON
-                let data;
-                try {
-                    data = JSON.parse(responseText);
-                } catch (jsonError) {
-                    console.error('JSON parse error:', jsonError);
-                    console.error('Response text:', responseText.substring(0, 200));
-                    showErrorStatus('Server returned invalid JSON. Check console for details.');
-                    if (!scanInterval) {
-                        setScanningState(false);
+                    if (pingTimings.length > 50) {
+                        pingTimings.shift(); // Keep last 50 timings
                     }
-                    return;
-                }
-                
-                if (data.error) {
-                    // Check if it's a rate limit error
-                    if (data.error.includes('Rate limit:')) {
-                        // Extract wait time from error message
-                        const match = data.error.match(/wait (\d+) seconds/);
-                        if (match) {
-                            const waitTime = parseInt(match[1]);
-                            console.log(`Rate limit hit, automatically waiting ${waitTime} seconds...`);
-                            
-                            // Retry after waiting
-                            setTimeout(() => {
-                                performScan();
-                            }, waitTime * 1000);
-                            return;
+                    
+                    // Check if skipped
+                    if (result.skipped) {
+                        updateTileSkipped(result.ip, result.name);
+                    } else {
+                        // Update tile with result
+                        updateTileWithResult(result);
+                        
+                        // Track timeout
+                        if (!result.online) {
+                            timedOutIPs.add(result.ip);
+                        }
+                        
+                        // Update chart
+                        if (result.online && result.response_time) {
+                            updateChartWithResult(result);
                         }
                     }
                     
-                    // For non-rate-limit errors, show error status
-                    showErrorStatus(data.error);
-                    return;
+                    // Update statistics
+                    updateStatistics();
+                } else {
+                    console.error('Ping failed for', ip, data.error);
+                    updateTileError(ip, name, data.error || 'Unknown error');
                 }
-
-                displayResults(data.results);
-                updateChart(data.results);
-                
-                // Schedule a timeout check after SCAN_TIMEOUT_MS plus a small buffer to catch any stuck tiles
-                // All tiles in a scan batch share the same start time, so a single check is sufficient
-                setTimeout(() => {
-                    checkForTimedOutTiles();
-                }, SCAN_TIMEOUT_MS + 500); // Add 500ms buffer to ensure timeout threshold is exceeded
-                
-                // If one-time scan, reset UI state after completion
-                if (!scanInterval) {
-                    setScanningState(false);
-                    showCompletionStatus();
-                }
-                
             } catch (error) {
-                console.error('Error:', error);
-                showErrorStatus('Failed to perform scan: ' + error.message);
-                // Reset UI state on error
-                if (!scanInterval) {
-                    setScanningState(false);
-                }
+                console.error('Error pinging', ip, error);
+                updateTileError(ip, name, error.message);
             }
         }
 
-        function displayResults(results) {
+        function displayScanningTiles(ips) {
             document.getElementById('resultsSection').style.display = 'block';
-            
             const statusGrid = document.getElementById('statusGrid');
+            
+            // Clear status grid on first scan, but preserve historyData for charts
+            if (isFirstScan) {
+                statusGrid.innerHTML = '';
+                // Don't clear historyData - preserve it for graph continuity
+                isFirstScan = false;
+                
+                // Reset statistics
+                document.getElementById('totalCount').textContent = '0';
+                document.getElementById('onlineCount').textContent = '0';
+                document.getElementById('offlineCount').textContent = '0';
+                document.getElementById('avgResponse').textContent = '--';
+            }
+            
+            ips.forEach(target => {
+                let card = statusGrid.querySelector(`[data-ip="${target.ip}"]`);
+                if (!card) {
+                    card = document.createElement('div');
+                    card.className = 'status-card scanning';
+                    card.setAttribute('data-ip', target.ip);
+                    card.innerHTML = `
+                        <div class="status-header">
+                            <span class="status-icon">🔄</span>
+                            <span style="color: #00d9ff; font-weight: 600;">Scanning...</span>
+                        </div>
+                        ${target.name ? `<div class="friendly-name">${escapeHtml(target.name)}</div>` : ''}
+                        <div class="ip-address">${escapeHtml(target.ip)}</div>
+                        <div class="status-info">Waiting for response...</div>
+                        <div class="timestamp">Started: ${new Date().toLocaleTimeString()}</div>
+                    `;
+                    statusGrid.appendChild(card);
+                } else {
+                    // Update existing card to scanning state
+                    card.className = 'status-card scanning';
+                    card.innerHTML = `
+                        <div class="status-header">
+                            <span class="status-icon">🔄</span>
+                            <span style="color: #00d9ff; font-weight: 600;">Scanning...</span>
+                        </div>
+                        ${target.name ? `<div class="friendly-name">${escapeHtml(target.name)}</div>` : ''}
+                        <div class="ip-address">${escapeHtml(target.ip)}</div>
+                        <div class="status-info">Waiting for response...</div>
+                        <div class="timestamp">Started: ${new Date().toLocaleTimeString()}</div>
+                    `;
+                }
+                
+                scanningTiles[target.ip] = Date.now();
+            });
+        }
+
+        function updateTileWithResult(result) {
+            const statusGrid = document.getElementById('statusGrid');
+            const card = statusGrid.querySelector(`[data-ip="${result.ip}"]`);
+            if (!card) return;
+            
+            delete scanningTiles[result.ip];
+            
+            if (result.online) {
+                // Add mini chart container for online IPs
+                const chartHTML = `<div class="mini-chart-container"><canvas class="mini-chart-canvas" id="chart-${result.ip.replace(/\./g, '-')}"></canvas></div>`;
+                
+                card.className = 'status-card online';
+                card.innerHTML = `
+                    <div class="status-header">
+                        <span class="status-icon">✅</span>
+                        <span style="color: #28a745; font-weight: 600;">Online</span>
+                    </div>
+                    ${result.name ? `<div class="friendly-name">${escapeHtml(result.name)}</div>` : ''}
+                    <div class="ip-address">${escapeHtml(result.ip)}</div>
+                    ${result.host_info ? `<div class="status-info">${escapeHtml(result.host_info)}</div>` : ''}
+                    <div class="response-time">${result.response_time} ms</div>
+                    <div class="timestamp">Last check: ${result.timestamp}</div>
+                    ${chartHTML}
+                `;
+                
+                // Update mini chart after DOM is updated
+                setTimeout(() => updateMiniChart(result.ip, result.response_time), 0);
+            } else {
+                card.className = 'status-card offline';
+                card.innerHTML = `
+                    <div class="status-header">
+                        <span class="status-icon">❌</span>
+                        <span style="color: #dc3545; font-weight: 600;">Offline</span>
+                    </div>
+                    ${result.name ? `<div class="friendly-name">${escapeHtml(result.name)}</div>` : ''}
+                    <div class="ip-address">${escapeHtml(result.ip)}</div>
+                    <div class="status-info">No response received</div>
+                    <div class="timestamp">Last check: ${result.timestamp}</div>
+                `;
+            }
+        }
+
+        function updateTileSkipped(ip, name) {
+            const statusGrid = document.getElementById('statusGrid');
+            const card = statusGrid.querySelector(`[data-ip="${ip}"]`);
+            if (!card) return;
+            
+            delete scanningTiles[ip];
+            
+            card.className = 'status-card timeout';
+            card.innerHTML = `
+                <div class="status-header">
+                    <span class="status-icon">⏩</span>
+                    <span style="color: #ff9500; font-weight: 600;">Skipped</span>
+                </div>
+                ${name ? `<div class="friendly-name">${escapeHtml(name)}</div>` : ''}
+                <div class="ip-address">${escapeHtml(ip)}</div>
+                <div class="status-info">Previously timed out - skipped in this round</div>
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+            `;
+        }
+
+        function updateTileError(ip, name, error) {
+            const statusGrid = document.getElementById('statusGrid');
+            const card = statusGrid.querySelector(`[data-ip="${ip}"]`);
+            if (!card) return;
+            
+            delete scanningTiles[ip];
+            
+            card.className = 'status-card offline';
+            card.innerHTML = `
+                <div class="status-header">
+                    <span class="status-icon">⚠️</span>
+                    <span style="color: #dc3545; font-weight: 600;">Error</span>
+                </div>
+                ${name ? `<div class="friendly-name">${escapeHtml(name)}</div>` : ''}
+                <div class="ip-address">${escapeHtml(ip)}</div>
+                <div class="status-info">${escapeHtml(error)}</div>
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+            `;
+        }
+
+        function updateStatistics() {
+            const statusGrid = document.getElementById('statusGrid');
+            const cards = statusGrid.querySelectorAll('.status-card');
             
             let onlineCount = 0;
             let offlineCount = 0;
             let totalResponse = 0;
             let responseCount = 0;
-
-            results.forEach(result => {
-                // Try to find existing card for this IP
-                let card = statusGrid.querySelector(`[data-ip="${result.ip}"]`);
-                const isNewCard = !card;
-                
-                if (!card) {
-                    card = document.createElement('div');
-                    card.setAttribute('data-ip', result.ip);
-                }
-                
-                // Remove from scanning tiles tracking since we got a result
-                delete scanningTiles[result.ip];
-                
-                card.className = `status-card ${result.online ? 'online' : 'offline'}`;
-                
-                const icon = result.online ? '✅' : '❌';
-                const statusText = result.online ? 'Online' : 'Offline';
-                
-                if (result.online) {
+            
+            cards.forEach(card => {
+                if (card.classList.contains('online')) {
                     onlineCount++;
-                    if (result.response_time) {
-                        totalResponse += parseFloat(result.response_time);
-                        responseCount++;
+                    const responseTimeEl = card.querySelector('.response-time');
+                    if (responseTimeEl) {
+                        const time = parseFloat(responseTimeEl.textContent);
+                        if (!isNaN(time)) {
+                            totalResponse += time;
+                            responseCount++;
+                        }
                     }
-                } else {
+                } else if (card.classList.contains('offline') || card.classList.contains('timeout')) {
                     offlineCount++;
                 }
-
-                let infoHTML = '';
-                if (result.online && result.host_info) {
-                    infoHTML = `<div class="status-info">Host: ${result.host_info}</div>`;
-                }
-                if (result.online && result.response_time) {
-                    infoHTML += `<div class="status-info">Response: <span class="response-time">${result.response_time}ms</span></div>`;
-                    
-                    // Calculate and display min/max/avg if we have history
-                    if (historyData[result.ip] && historyData[result.ip].data.length > 0) {
-                        const values = historyData[result.ip].data.map(d => d.value);
-                        const min = Math.min(...values).toFixed(2);
-                        const max = Math.max(...values).toFixed(2);
-                        const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
-                        infoHTML += `<div class="status-info" style="font-size:11px; color:#888;">Min: ${min}ms | Avg: ${avg}ms | Max: ${max}ms</div>`;
-                    }
-                }
-                
-                // Add mini chart container for online IPs
-                const chartHTML = result.online ? `<div class="mini-chart-container"><canvas class="mini-chart-canvas" id="chart-${result.ip.replace(/\./g, '-')}"></canvas></div>` : '';
-                
-                card.innerHTML = `
-                    <div class="status-header">
-                        <span class="status-icon">${icon}</span>
-                        <span style="color: ${result.online ? '#28a745' : '#dc3545'}; font-weight: 600;">${statusText}</span>
-                    </div>
-                    ${result.name ? `<div class="friendly-name">${result.name}</div>` : ''}
-                    <div class="ip-address">${result.ip}</div>
-                    ${infoHTML}
-                    <div class="timestamp">Last checked: ${result.timestamp}</div>
-                    ${chartHTML}
-                `;
-                
-                if (isNewCard) {
-                    statusGrid.appendChild(card);
-                }
-                
-                // Update mini chart if online
-                if (result.online && result.response_time) {
-                    updateMiniChart(result.ip, result.response_time);
-                }
             });
-
-            // Update stats
-            document.getElementById('totalCount').textContent = results.length;
+            
+            document.getElementById('totalCount').textContent = cards.length;
             document.getElementById('onlineCount').textContent = onlineCount;
             document.getElementById('offlineCount').textContent = offlineCount;
-            document.getElementById('avgResponse').textContent = 
-                responseCount > 0 ? Math.round(totalResponse / responseCount) + 'ms' : '--';
             
-            // Increment completed scans counter and update ETA
-            if (scanInterval) {
-                completedScans++;
-                updateETA();
+            if (responseCount > 0) {
+                const avg = (totalResponse / responseCount).toFixed(2);
+                document.getElementById('avgResponse').textContent = avg + ' ms';
+            } else {
+                document.getElementById('avgResponse').textContent = '--';
             }
         }
 
-        function checkForTimedOutTiles() {
-            const now = Date.now();
-            const statusGrid = document.getElementById('statusGrid');
+        function updateChartWithResult(result) {
+            if (typeof Chart === 'undefined') return;
             
-            // Check all tiles still in scanningTiles tracking
-            for (const ip in scanningTiles) {
-                const scanStartTime = scanningTiles[ip];
-                const elapsed = now - scanStartTime;
-                
-                // If tile has been scanning longer than timeout, mark as timed out
-                if (elapsed > SCAN_TIMEOUT_MS) {
-                    const card = statusGrid.querySelector(`[data-ip="${ip}"]`);
-                    if (card && card.classList.contains('scanning')) {
-                        // Update tile to show timed out state
-                        card.className = 'status-card timeout';
-                        
-                        // Get friendly name if it exists
-                        const friendlyNameDiv = card.querySelector('.friendly-name');
-                        const friendlyName = friendlyNameDiv ? friendlyNameDiv.textContent : '';
-                        
-                        card.innerHTML = `
-                            <div class="status-header">
-                                <span class="status-icon">⏱️</span>
-                                <span style="color: #ff9500; font-weight: 600;">Timed Out</span>
-                            </div>
-                            ${friendlyName ? `<div class="friendly-name">${friendlyName}</div>` : ''}
-                            <div class="ip-address">${ip}</div>
-                            <div class="status-info">No response received within timeout period</div>
-                            <div class="timestamp">Timeout: ${new Date().toLocaleTimeString()}</div>
-                        `;
-                        
-                        // Remove from tracking
-                        delete scanningTiles[ip];
-                    }
-                }
-            }
-        }
-
-        function updateChart(results) {
-            // Update history data for all results
             const timestamp = new Date().toLocaleTimeString();
             
-            results.forEach(result => {
-                if (result.online && result.response_time) {
-                    if (!historyData[result.ip]) {
-                        historyData[result.ip] = {
-                            name: result.name || result.ip,
-                            data: []
-                        };
-                    }
-                    historyData[result.ip].data.push({
-                        time: timestamp,
-                        value: parseFloat(result.response_time)
-                    });
-                    
-                    // Keep only last 10 data points for mini charts
-                    if (historyData[result.ip].data.length > 10) {
-                        historyData[result.ip].data.shift();
-                    }
-                }
+            if (!historyData[result.ip]) {
+                historyData[result.ip] = {
+                    name: result.name || result.ip,
+                    data: []
+                };
+            }
+            
+            historyData[result.ip].data.push({
+                time: timestamp,
+                value: parseFloat(result.response_time)
             });
+            
+            // Keep only last 10 data points
+            if (historyData[result.ip].data.length > 10) {
+                historyData[result.ip].data.shift();
+            }
+            
+            updateChart();
+        }
+
+        function updateChart() {
+            if (typeof Chart === 'undefined') return;
+            
+            const canvas = document.getElementById('responseChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Prepare datasets
+            const datasets = [];
+            const colors = ['#00d9ff', '#00ff88', '#ff9500', '#dc3545', '#667eea', '#f093fb'];
+            let colorIndex = 0;
+            
+            for (const ip in historyData) {
+                const data = historyData[ip];
+                if (data.data.length === 0) continue;
+                
+                datasets.push({
+                    label: data.name,
+                    data: data.data.map(d => d.value),
+                    borderColor: colors[colorIndex % colors.length],
+                    backgroundColor: colors[colorIndex % colors.length] + '33',
+                    tension: 0.4,
+                    fill: false
+                });
+                colorIndex++;
+            }
+            
+            // Get labels from first dataset
+            let labels = [];
+            if (datasets.length > 0) {
+                const firstIp = Object.keys(historyData)[0];
+                labels = historyData[firstIp].data.map(d => d.time);
+            }
+            
+            if (responseChart) {
+                responseChart.data.labels = labels;
+                responseChart.data.datasets = datasets;
+                responseChart.update();
+            } else {
+                responseChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e4e7eb'
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 217, 255, 0.1)'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Response Time (ms)',
+                                    color: '#e4e7eb'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 217, 255, 0.1)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         function updateMiniChart(ip, responseTime) {
@@ -1367,6 +1485,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     }
                 }
             });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
     </script>
