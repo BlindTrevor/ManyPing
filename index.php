@@ -6,6 +6,12 @@
     <title>ManyPing - Concurrent IP Monitor</title>
     <link rel="icon" type="image/png" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300d9ff'/></svg>">
     <style>
+        :root {
+            --primary-cyan: #00d9ff;
+            --primary-purple: #667eea;
+            --accent-green: #00ff88;
+            --disabled-opacity: 0.5;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -485,7 +491,7 @@
             left: -2px;
             right: -2px;
             bottom: -2px;
-            background: linear-gradient(45deg, #00d9ff, #667eea, #00d9ff);
+            background: linear-gradient(45deg, var(--primary-cyan), var(--primary-purple), var(--primary-cyan));
             border-radius: 12px;
             z-index: -1;
             opacity: 0;
@@ -516,26 +522,26 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, transparent, #00d9ff, transparent);
+            background: linear-gradient(90deg, transparent, var(--primary-cyan), transparent);
             opacity: 0;
             transition: opacity 0.3s;
         }
         .control-card:hover {
             transform: translateY(-3px);
-            border-color: #00d9ff;
+            border-color: var(--primary-cyan);
             box-shadow: 0 8px 25px rgba(0, 217, 255, 0.4);
         }
         .control-card:hover::after {
             opacity: 1;
         }
         .control-card.disabled {
-            opacity: 0.5;
+            opacity: var(--disabled-opacity);
             pointer-events: none;
         }
         
         .control-card-title {
             font-size: 13px;
-            color: #00d9ff;
+            color: var(--primary-cyan);
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 15px;
@@ -548,9 +554,9 @@
             content: '';
             width: 4px;
             height: 16px;
-            background: linear-gradient(180deg, #00d9ff, #667eea);
+            background: linear-gradient(180deg, var(--primary-cyan), var(--primary-purple));
             border-radius: 2px;
-            box-shadow: 0 0 10px #00d9ff;
+            box-shadow: 0 0 10px var(--primary-cyan);
         }
         
         .control-option {
@@ -578,7 +584,7 @@
             flex: 1;
         }
         .control-option input[type="radio"] {
-            accent-color: #00d9ff;
+            accent-color: var(--primary-cyan);
             width: 18px;
             height: 18px;
             cursor: pointer;
@@ -589,7 +595,7 @@
             background: rgba(0, 0, 0, 0.5);
             border: 1px solid rgba(0, 217, 255, 0.3);
             border-radius: 6px;
-            color: #00ff88;
+            color: var(--accent-green);
             font-family: 'Courier New', monospace;
             font-size: 14px;
             font-weight: 600;
@@ -597,16 +603,16 @@
         }
         .control-option input[type="number"]:focus {
             outline: none;
-            border-color: #00d9ff;
+            border-color: var(--primary-cyan);
             box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
             background: rgba(0, 0, 0, 0.7);
         }
         .control-option input[type="number"]:disabled {
-            opacity: 0.4;
+            opacity: var(--disabled-opacity);
             cursor: not-allowed;
         }
         .control-option .unit {
-            color: #667eea;
+            color: var(--primary-purple);
             font-size: 12px;
             font-weight: 600;
             min-width: 60px;
@@ -616,7 +622,7 @@
             margin-top: 12px;
             padding: 10px;
             background: rgba(102, 126, 234, 0.1);
-            border-left: 3px solid #667eea;
+            border-left: 3px solid var(--primary-purple);
             border-radius: 4px;
             font-size: 11px;
             color: #9ca3af;
@@ -630,7 +636,7 @@
             border: 1px solid rgba(102, 126, 234, 0.3);
             border-radius: 6px;
             font-size: 12px;
-            color: #667eea;
+            color: var(--primary-purple);
             font-weight: 600;
             text-align: center;
             box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
@@ -741,7 +747,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                         <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
                         <span class="unit">scans</span>
                     </div>
-                    <div id="etaDisplay" class="eta-display">⏱️ ETA: Select repeat mode</div>
+                    <div id="etaDisplay" class="eta-display"><span aria-label="Estimated time remaining">⏱️</span> ETA: Select repeat mode</div>
                 </div>
             </div>
             
