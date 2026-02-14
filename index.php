@@ -304,6 +304,13 @@
             background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.8), transparent);
             animation: scan-line 2s linear infinite;
         }
+        .status-card.timeout {
+            border-color: rgba(255, 165, 0, 0.4);
+            box-shadow: 0 0 20px rgba(255, 165, 0, 0.1);
+        }
+        .status-card.timeout::before {
+            background: linear-gradient(90deg, transparent, rgba(255, 165, 0, 0.6), transparent);
+        }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -610,6 +617,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let scanStartTime = null; // Track when scanning started
         let progressInterval = null; // Track progress bar update interval
         const RATE_LIMIT_MS = 5000; // 5 seconds between scans
+        let scanningTiles = {}; // Track when each tile starts scanning
+        const SCAN_TIMEOUT_MS = 10000; // 10 seconds timeout for individual tile scans
 
         // Check if Chart.js loaded successfully
         window.addEventListener('load', function() {
@@ -870,6 +879,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('statusGrid').innerHTML = '';
             historyData = {};
+            scanningTiles = {}; // Clear scanning tiles tracking
             if (responseChart) {
                 responseChart.destroy();
                 responseChart = null;
@@ -880,10 +890,14 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         function parseIPInput(input) {
             const lines = input.split('\n');
             const ips = [];
+            const MAX_IPS = 50; // Match backend limit
             
             for (let line of lines) {
                 line = line.trim();
                 if (!line || line.startsWith('#')) continue;
+                
+                // Stop if we've reached the max
+                if (ips.length >= MAX_IPS) break;
                 
                 const parts = line.split(/\s+/);
                 const ipPart = parts[0];
@@ -892,7 +906,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 // Check if it's a CIDR notation
                 if (ipPart.includes('/')) {
                     const cidrIPs = expandCIDR(ipPart);
-                    cidrIPs.forEach(ip => ips.push({ ip, name }));
+                    cidrIPs.forEach(ip => {
+                        if (ips.length < MAX_IPS) {
+                            ips.push({ ip, name });
+                        }
+                    });
                 }
                 // Check if it's a range
                 else if (/^(\d+\.\d+\.\d+\.)(\d+)-(\d+)$/.test(ipPart)) {
@@ -901,13 +919,15 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     const start = parseInt(match[2]);
                     const end = parseInt(match[3]);
                     
-                    for (let i = start; i <= end && ips.length < 50; i++) {
+                    for (let i = start; i <= end && ips.length < MAX_IPS; i++) {
                         ips.push({ ip: base + i, name });
                     }
                 }
                 // Single IP
                 else {
-                    ips.push({ ip: ipPart, name });
+                    if (ips.length < MAX_IPS) {
+                        ips.push({ ip: ipPart, name });
+                    }
                 }
             }
             
@@ -944,6 +964,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         function displayScanningTiles(ips) {
             document.getElementById('resultsSection').style.display = 'block';
             const statusGrid = document.getElementById('statusGrid');
+            const currentScanStartTime = Date.now();
+            
+            // Track all IPs being scanned with their start time
+            ips.forEach(ipObj => {
+                scanningTiles[ipObj.ip] = currentScanStartTime;
+            });
             
             // Only clear and show blue tiles on first scan
             if (isFirstScan) {
@@ -1056,6 +1082,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 displayResults(data.results);
                 updateChart(data.results);
                 
+                // Schedule a timeout check after SCAN_TIMEOUT_MS plus a small buffer to catch any stuck tiles
+                // All tiles in a scan batch share the same start time, so a single check is sufficient
+                setTimeout(() => {
+                    checkForTimedOutTiles();
+                }, SCAN_TIMEOUT_MS + 500); // Add 500ms buffer to ensure timeout threshold is exceeded
+                
                 // If one-time scan, reset UI state after completion
                 if (!scanInterval) {
                     setScanningState(false);
@@ -1091,6 +1123,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     card = document.createElement('div');
                     card.setAttribute('data-ip', result.ip);
                 }
+                
+                // Remove from scanning tiles tracking since we got a result
+                delete scanningTiles[result.ip];
                 
                 card.className = `status-card ${result.online ? 'online' : 'offline'}`;
                 
@@ -1160,6 +1195,44 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             if (scanInterval) {
                 completedScans++;
                 updateETA();
+            }
+        }
+
+        function checkForTimedOutTiles() {
+            const now = Date.now();
+            const statusGrid = document.getElementById('statusGrid');
+            
+            // Check all tiles still in scanningTiles tracking
+            for (const ip in scanningTiles) {
+                const scanStartTime = scanningTiles[ip];
+                const elapsed = now - scanStartTime;
+                
+                // If tile has been scanning longer than timeout, mark as timed out
+                if (elapsed > SCAN_TIMEOUT_MS) {
+                    const card = statusGrid.querySelector(`[data-ip="${ip}"]`);
+                    if (card && card.classList.contains('scanning')) {
+                        // Update tile to show timed out state
+                        card.className = 'status-card timeout';
+                        
+                        // Get friendly name if it exists
+                        const friendlyNameDiv = card.querySelector('.friendly-name');
+                        const friendlyName = friendlyNameDiv ? friendlyNameDiv.textContent : '';
+                        
+                        card.innerHTML = `
+                            <div class="status-header">
+                                <span class="status-icon">⏱️</span>
+                                <span style="color: #ff9500; font-weight: 600;">Timed Out</span>
+                            </div>
+                            ${friendlyName ? `<div class="friendly-name">${friendlyName}</div>` : ''}
+                            <div class="ip-address">${ip}</div>
+                            <div class="status-info">No response received within timeout period</div>
+                            <div class="timestamp">Timeout: ${new Date().toLocaleTimeString()}</div>
+                        `;
+                        
+                        // Remove from tracking
+                        delete scanningTiles[ip];
+                    }
+                }
             }
         }
 
