@@ -214,9 +214,26 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .status-indicator.scanning {
+            position: relative;
+            overflow: hidden;
             background: rgba(0, 255, 136, 0.1);
             border-color: rgba(0, 255, 136, 0.3);
             color: #00ff88;
+        }
+        .status-indicator.scanning::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: var(--progress, 0%);
+            background: rgba(0, 255, 136, 0.2);
+            transition: width 0.3s ease-out;
+            z-index: 0;
+        }
+        .status-indicator.scanning > * {
+            position: relative;
+            z-index: 1;
         }
         .status-indicator.complete {
             background: rgba(0, 217, 255, 0.15);
@@ -821,6 +838,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
         let pingTimings = []; // Track ping durations for ETA calculation
         let timedOutIPs = new Set(); // Track IPs that timed out
         let isScanning = false;
+        let totalIPsInScan = 0; // Total IPs in current scan
+        let completedIPsInScan = 0; // Completed IPs in current scan
         
         // Favicon management
         function updateFavicon(status) {
@@ -937,7 +956,8 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 toggleBtn.classList.add('scanning');
                 toggleBtn.innerHTML = '[ ■ TERMINATE ]';
                 statusIndicator.className = 'status-indicator scanning';
-                statusIndicator.innerHTML = '<div class="spinner-small"></div><span>Scan in progress</span>';
+                statusIndicator.innerHTML = '<div class="spinner-small"></div><span>Scan in progress (0%)</span>';
+                statusIndicator.style.setProperty('--progress', '0%');
                 statusIndicator.style.display = 'inline-flex';
                 updateFavicon('running');
             } else {
@@ -946,6 +966,19 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 toggleBtn.innerHTML = '[ >_ EXECUTE SCAN ]';
                 statusIndicator.style.display = 'none';
                 updateFavicon('idle');
+            }
+        }
+        
+        function updateScanProgress() {
+            if (!isScanning || totalIPsInScan === 0) return;
+            
+            const statusIndicator = document.getElementById('statusIndicator');
+            const percentage = Math.round((completedIPsInScan / totalIPsInScan) * 100);
+            
+            statusIndicator.style.setProperty('--progress', percentage + '%');
+            const span = statusIndicator.querySelector('span');
+            if (span) {
+                span.textContent = `Scan in progress (${percentage}%)`;
             }
         }
         
@@ -1180,6 +1213,11 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 return;
             }
             
+            // Initialize progress tracking for this scan
+            totalIPsInScan = ips.length;
+            completedIPsInScan = 0;
+            updateScanProgress();
+            
             displayScanningTiles(ips);
             
             const staggerInterval = parseFloat(document.getElementById('staggerInterval').value) || 0;
@@ -1331,6 +1369,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             delete scanningTiles[result.ip];
             
+            // Update progress
+            completedIPsInScan++;
+            updateScanProgress();
+            
             // Get or create reusable elements
             let statusIcon = card.querySelector('.status-icon');
             let statusText = card.querySelector('.status-text');
@@ -1452,6 +1494,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             
             delete scanningTiles[ip];
             
+            // Update progress
+            completedIPsInScan++;
+            updateScanProgress();
+            
             card.className = 'status-card timeout';
             
             // Update existing elements
@@ -1485,6 +1531,10 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             if (!card) return;
             
             delete scanningTiles[ip];
+            
+            // Update progress
+            completedIPsInScan++;
+            updateScanProgress();
             
             card.className = 'status-card offline';
             
