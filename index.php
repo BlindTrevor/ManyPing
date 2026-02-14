@@ -974,12 +974,30 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             if (!isScanning || totalIPsInScan === 0) return;
             
             const statusIndicator = document.getElementById('statusIndicator');
-            const percentage = Math.round((completedIPsInScan / totalIPsInScan) * 100);
+            let percentage;
+            let statusText;
+            
+            // Calculate overall progress including repeat scans
+            if (totalScans > 1) {
+                // For repeat scans, calculate total progress across all scans
+                // completedScans represents the number of fully completed scans
+                const totalPings = totalScans * totalIPsInScan;
+                const completedPings = (completedScans * totalIPsInScan) + completedIPsInScan;
+                percentage = Math.round((completedPings / totalPings) * 100);
+                
+                // Show scan iteration info in status text (current scan is completedScans + 1)
+                const currentScan = completedScans + 1;
+                statusText = `Scan ${currentScan}/${totalScans} in progress (${percentage}% total)`;
+            } else {
+                // For single scans, show progress of current scan only
+                percentage = Math.round((completedIPsInScan / totalIPsInScan) * 100);
+                statusText = `Scan in progress (${percentage}%)`;
+            }
             
             statusIndicator.style.setProperty('--progress', percentage + '%');
             const span = statusIndicator.querySelector('span');
             if (span) {
-                span.textContent = `Scan in progress (${percentage}%)`;
+                span.textContent = statusText;
             }
         }
         
