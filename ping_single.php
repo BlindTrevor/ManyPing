@@ -31,7 +31,7 @@ header('X-Accel-Buffering: no');
 header('Connection: keep-alive');
 header('Keep-Alive: timeout=30, max=1');
 
-const PING_TIMEOUT = 2; // seconds
+const PING_TIMEOUT = 1; // seconds
 
 /**
  * Ping a single IP address

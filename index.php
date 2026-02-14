@@ -6,6 +6,12 @@
     <title>ManyPing - Concurrent IP Monitor</title>
     <link rel="icon" type="image/png" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300d9ff'/></svg>">
     <style>
+        :root {
+            --primary-cyan: #00d9ff;
+            --primary-purple: #667eea;
+            --accent-green: #00ff88;
+            --disabled-opacity: 0.5;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -462,6 +468,178 @@
         .interval-control input:focus {
             outline: none;
             border-color: #00d9ff;
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
+        }
+        
+        /* Futuristic Control Panel */
+        .futuristic-control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.05) 0%, rgba(102, 126, 234, 0.05) 100%);
+            border: 2px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 217, 255, 0.2), inset 0 0 30px rgba(0, 217, 255, 0.05);
+        }
+        .futuristic-control-panel::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--primary-cyan), var(--primary-purple), var(--primary-cyan));
+            border-radius: 12px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+            animation: borderGlow 3s linear infinite;
+        }
+        .futuristic-control-panel:hover::before {
+            opacity: 0.6;
+        }
+        @keyframes borderGlow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+        
+        .control-card {
+            background: rgba(10, 14, 26, 0.9);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .control-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary-cyan), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .control-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--primary-cyan);
+            box-shadow: 0 8px 25px rgba(0, 217, 255, 0.4);
+        }
+        .control-card:hover::after {
+            opacity: 1;
+        }
+        .control-card.disabled {
+            opacity: var(--disabled-opacity);
+            pointer-events: none;
+        }
+        
+        .control-card-title {
+            font-size: 13px;
+            color: var(--primary-cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-card-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: linear-gradient(180deg, var(--primary-cyan), var(--primary-purple));
+            border-radius: 2px;
+            box-shadow: 0 0 10px var(--primary-cyan);
+        }
+        
+        .control-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 10px;
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(0, 217, 255, 0.1);
+            transition: all 0.2s;
+        }
+        .control-option:hover {
+            background: rgba(0, 217, 255, 0.1);
+            border-color: rgba(0, 217, 255, 0.3);
+        }
+        .control-option:last-child {
+            margin-bottom: 0;
+        }
+        .control-option label {
+            margin: 0;
+            color: #9ca3af;
+            font-size: 13px;
+            flex: 1;
+        }
+        .control-option input[type="radio"] {
+            accent-color: var(--primary-cyan);
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .control-option input[type="number"] {
+            width: 90px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 6px;
+            color: var(--accent-green);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .control-option input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-cyan);
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
+            background: rgba(0, 0, 0, 0.7);
+        }
+        .control-option input[type="number"]:disabled {
+            opacity: var(--disabled-opacity);
+            cursor: not-allowed;
+        }
+        .control-option .unit {
+            color: var(--primary-purple);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 60px;
+        }
+        
+        .control-info {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 3px solid var(--primary-purple);
+            border-radius: 4px;
+            font-size: 11px;
+            color: #9ca3af;
+            line-height: 1.5;
+        }
+        
+        .eta-display {
+            margin-top: 12px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.1), rgba(102, 126, 234, 0.1));
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--primary-purple);
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
         }
         input[type="number"] {
             background: rgba(10, 14, 26, 0.8);
@@ -523,51 +701,53 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                 ⚠️ Rate Limiting: Max 50 IPs per scan, 5-second minimum interval between scans to prevent network abuse
             </div>
             
-            <div class="form-group">
-                <label>Scan Mode</label>
-                <div class="scan-mode">
-                    <label>
-                        <input type="radio" name="scanMode" value="once" checked>
-                        One-time Scan
-                    </label>
-                    <label>
-                        <input type="radio" name="scanMode" value="repeat">
-                        Repeat Every
-                    </label>
-                    <div class="interval-control">
-                        <input type="number" id="scanInterval" value="10" min="5" max="300">
-                        <span>seconds</span>
+            <!-- Futuristic Horizontal Control Panel -->
+            <div class="futuristic-control-panel">
+                <!-- Scan Mode Card -->
+                <div class="control-card">
+                    <div class="control-card-title">⚡ SCAN MODE</div>
+                    <div class="control-option">
+                        <input type="radio" name="scanMode" id="scanModeOnce" value="once" checked>
+                        <label for="scanModeOnce">One-time Scan</label>
+                    </div>
+                    <div class="control-option">
+                        <input type="radio" name="scanMode" id="scanModeRepeat" value="repeat">
+                        <label for="scanModeRepeat">Repeat Every</label>
+                        <input type="number" id="scanInterval" value="5" min="5" max="300">
+                        <span class="unit">seconds</span>
+                    </div>
+                    <div class="control-info">
+                        Choose between a single scan or continuous monitoring with configurable intervals.
                     </div>
                 </div>
                 
-                <div style="margin-top:10px;">
-                    <label style="font-size: 14px; font-weight: normal;">Stagger Interval (delay between each ping)</label>
-                    <div class="scan-mode">
-                        <div class="interval-control">
-                            <input type="number" id="staggerInterval" value="0" min="0" max="10" step="0.1">
-                            <span>seconds</span>
-                        </div>
+                <!-- Ping Configuration Card -->
+                <div class="control-card">
+                    <div class="control-card-title">⚙️ PING CONFIG</div>
+                    <div class="control-option">
+                        <label for="staggerInterval">Stagger Interval</label>
+                        <input type="number" id="staggerInterval" value="1" min="0" max="10" step="0.1">
+                        <span class="unit">seconds</span>
                     </div>
-                    <div class="help-text">Set to 0 for simultaneous pings, or a delay (e.g., 0.5) to stagger pings</div>
+                    <div class="control-info">
+                        Delay between each ping. Use 0 for simultaneous pings or 1+ for sequential execution.
+                    </div>
                 </div>
                 
-                <div id="repeatOptions" style="display:none; margin-top:10px;">
-                    <label style="font-size: 14px; font-weight: normal;">Number of Scans</label>
-                    <div class="scan-mode">
-                        <label>
-                            <input type="radio" name="scanCount" value="continuous" checked>
-                            Continuous
-                        </label>
-                        <label>
-                            <input type="radio" name="scanCount" value="limited">
-                            Limited to
-                        </label>
-                        <div class="interval-control">
-                            <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
-                            <span>scans</span>
-                        </div>
+                <!-- Repeat Configuration Card -->
+                <div class="control-card disabled" id="repeatConfigCard">
+                    <div class="control-card-title">🔄 REPEAT CONFIG</div>
+                    <div class="control-option">
+                        <input type="radio" name="scanCount" id="scanCountContinuous" value="continuous" checked>
+                        <label for="scanCountContinuous">Continuous</label>
                     </div>
-                    <div id="etaDisplay" style="margin-top:5px; font-size:12px; color:#667eea;"></div>
+                    <div class="control-option">
+                        <input type="radio" name="scanCount" id="scanCountLimited" value="limited">
+                        <label for="scanCountLimited">Limited to</label>
+                        <input type="number" id="scanCountInput" value="10" min="1" max="1000" disabled>
+                        <span class="unit">scans</span>
+                    </div>
+                    <div id="etaDisplay" class="eta-display" role="status" aria-live="polite"><span aria-label="Estimated time remaining">⏱️</span> ETA: Select repeat mode</div>
                 </div>
             </div>
             
@@ -679,12 +859,12 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
             // Set up event listeners
             document.querySelectorAll('input[name="scanMode"]').forEach(radio => {
                 radio.addEventListener('change', function() {
-                    const repeatOptions = document.getElementById('repeatOptions');
+                    const repeatConfigCard = document.getElementById('repeatConfigCard');
                     if (this.value === 'repeat') {
-                        repeatOptions.style.display = 'block';
+                        repeatConfigCard.classList.remove('disabled');
                         updateETA();
                     } else {
-                        repeatOptions.style.display = 'none';
+                        repeatConfigCard.classList.add('disabled');
                     }
                 });
             });

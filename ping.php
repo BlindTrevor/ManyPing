@@ -8,7 +8,7 @@
 
 // Configure PHP execution and session settings
 // Set execution time limit to allow for long-running scans
-// MAX_IPS_PER_SCAN (50) * PING_TIMEOUT (2s) = 100s minimum + overhead
+// MAX_IPS_PER_SCAN (50) * PING_TIMEOUT (1s) = 50s minimum + overhead
 ini_set('max_execution_time', '120'); // Allow up to 2 minutes for scan completion
 
 // Disable output buffering to prevent early timeouts
@@ -46,7 +46,7 @@ header('Keep-Alive: timeout=120, max=1');
 
 // Rate limiting configuration
 const MAX_IPS_PER_SCAN = 50;
-const PING_TIMEOUT = 2; // seconds
+const PING_TIMEOUT = 1; // seconds
 const MAX_CONCURRENT = 10; // Maximum concurrent ping processes
 const MIN_SCAN_INTERVAL = 5; // Minimum seconds between scans
 const FLUSH_INTERVAL = 5; // Flush output every N results to keep connection alive
