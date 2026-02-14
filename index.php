@@ -1314,32 +1314,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     `;
                     statusGrid.appendChild(card);
                 } else {
-                    // Update existing card to scanning state
-                    card.className = 'status-card scanning';
-                    
-                    // Update existing elements instead of replacing innerHTML
-                    let statusIcon = card.querySelector('.status-icon');
-                    let statusText = card.querySelector('.status-text');
-                    let statusInfo = card.querySelector('.status-info');
-                    let timestamp = card.querySelector('.timestamp');
-                    
-                    if (statusIcon) statusIcon.textContent = '🔄';
-                    if (statusText) {
-                        statusText.textContent = 'Scanning...';
-                        statusText.style.color = '#00d9ff';
-                    }
-                    if (statusInfo) {
-                        statusInfo.textContent = 'Waiting for response...';
-                    }
-                    if (timestamp) {
-                        timestamp.textContent = 'Started: ' + new Date().toLocaleTimeString();
-                    }
-                    
-                    // Remove response time and chart if present
-                    const responseTimeEl = card.querySelector('.response-time');
-                    if (responseTimeEl) responseTimeEl.remove();
-                    const chartContainer = card.querySelector('.mini-chart-container');
-                    if (chartContainer) chartContainer.remove();
+                    // Card already exists - don't reset to scanning state
+                    // Just keep the existing state and let updateTileWithResult update it
+                    // This prevents online tiles from flickering back to "scanning"
                 }
                 
                 scanningTiles[target.ip] = Date.now();
