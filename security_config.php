@@ -262,9 +262,16 @@ function validateOrigin() {
     }
     
     $referer = parse_url($_SERVER['HTTP_REFERER']);
-    $host = $_SERVER['HTTP_HOST'];
+    $serverHost = $_SERVER['HTTP_HOST'];
     
-    if (!isset($referer['host']) || $referer['host'] !== $host) {
+    // Build the expected referer host (with port if present)
+    $refererHost = $referer['host'] ?? '';
+    if (isset($referer['port'])) {
+        $refererHost .= ':' . $referer['port'];
+    }
+    
+    // Compare hosts (case-insensitive)
+    if (strcasecmp($refererHost, $serverHost) !== 0) {
         return false;
     }
     

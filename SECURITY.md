@@ -145,8 +145,11 @@ if ($requestedFile === false || dirname($requestedFile) !== $logsDir) {
 
 **Implementation:**
 - Validates HTTP_REFERER against server hostname
-- Prevents cross-origin POST requests
+- Properly handles port numbers in comparison
 - Allows missing referer (privacy tools compatibility)
+- Case-insensitive hostname comparison
+
+**Note:** The origin validation was fixed to properly handle port numbers. When a URL is parsed, the port is stored separately from the hostname, so we reconstruct "hostname:port" before comparison with `$_SERVER['HTTP_HOST']`.
 
 ## Security Best Practices for Deployment
 
