@@ -4,19 +4,44 @@
  * Displays results from a stored log file
  */
 
+// Security configuration
+define('MANYPING_SECURITY', true);
+require_once __DIR__ . '/security_config.php';
+
+// Initialize secure session
+initSecureSession();
+
+// Set security headers
+setSecurityHeaders();
+
 // Get session ID from query parameter
 $sessionId = isset($_GET['session']) ? $_GET['session'] : '';
 
 // Validate session ID (alphanumeric, dash, underscore only)
 if (empty($sessionId)) {
+    logSecurityEvent('LOG_ACCESS_DENIED', 'No session ID provided');
     die('Error: No session ID provided');
 }
 
-if (!preg_match('/^[a-zA-Z0-9_-]+$/', $sessionId)) {
+$sessionId = sanitizeSessionId($sessionId);
+if ($sessionId === false) {
+    logSecurityEvent('LOG_ACCESS_DENIED', 'Invalid session ID format: ' . $_GET['session']);
     die('Error: Invalid session ID format');
 }
 
 $logFile = __DIR__ . '/logs/' . $sessionId . '.log';
+
+// Prevent directory traversal - ensure file is within logs directory
+$logsDir = realpath(__DIR__ . '/logs');
+$requestedFile = realpath($logFile);
+
+// Check that the requested file is within the logs directory
+// Using DIRECTORY_SEPARATOR to prevent partial path matches
+if ($requestedFile === false || 
+    dirname($requestedFile) !== $logsDir) {
+    logSecurityEvent('PATH_TRAVERSAL', 'Attempted path traversal: ' . $sessionId);
+    die('Error: Invalid log file path');
+}
 
 if (!file_exists($logFile)) {
     die('Log file not found');

@@ -12,6 +12,10 @@ Thumbs.db
 # Logs
 *.log
 logs/
+!logs/.htaccess
+
+# Rate limit data
+logs/rate_limits/
 
 # Temporary files
 /tmp/
