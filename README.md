@@ -102,10 +102,17 @@ To prevent network abuse and DDOS behavior:
 ## Security Considerations
 
 - The application is designed for internal network monitoring
-- Rate limiting prevents abuse
-- Input validation sanitizes all IP addresses
-- Commands are properly escaped to prevent injection attacks
+- **Strong security measures implemented** (see [SECURITY.md](SECURITY.md) for details)
+  - CSRF protection on all forms
+  - Dual-layer rate limiting (IP + session based)
+  - Secure session management with hijacking protection
+  - Security headers (XSS, clickjacking, MIME-sniffing protection)
+  - Input validation and sanitization
+  - Path traversal prevention
+  - Security event logging
 - Recommend running behind authentication in production environments
+- See [SECURITY.md](SECURITY.md) for comprehensive security documentation
+- See [SECURITY_MAINTENANCE.md](SECURITY_MAINTENANCE.md) for ongoing security maintenance
 
 ## Browser Compatibility
 
