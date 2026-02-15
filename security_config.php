@@ -135,7 +135,16 @@ function initSecureSession() {
  * IP-based rate limiting
  */
 function checkRateLimit($ip) {
-    $rateLimitFile = sys_get_temp_dir() . '/manyping_rate_limit_' . md5($ip) . '.dat';
+    // Use application-specific directory instead of system temp
+    $rateDir = __DIR__ . '/logs/rate_limits';
+    if (!file_exists($rateDir)) {
+        if (!mkdir($rateDir, 0750, true)) {
+            error_log("Failed to create rate limit directory");
+            return true; // Fail open to avoid breaking functionality
+        }
+    }
+    
+    $rateLimitFile = $rateDir . '/rate_' . md5($ip) . '.dat';
     
     $currentTime = time();
     $requests = [];
@@ -163,6 +172,7 @@ function checkRateLimit($ip) {
     
     // Save updated rate limit data
     @file_put_contents($rateLimitFile, json_encode($requests), LOCK_EX);
+    @chmod($rateLimitFile, 0640);
     
     return true;
 }
@@ -209,9 +219,10 @@ function createSecureLogDirectory($directory) {
             return false;
         }
         
-        // Create .htaccess to prevent direct access
+        // Create .htaccess to prevent direct access with both Apache 2.2 and 2.4 syntax
         $htaccess = $directory . '/.htaccess';
-        file_put_contents($htaccess, "Deny from all\n", LOCK_EX);
+        $htaccessContent = "# Apache 2.2\n<IfModule !mod_authz_core.c>\n    Order Allow,Deny\n    Deny from all\n</IfModule>\n\n# Apache 2.4\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n";
+        file_put_contents($htaccess, $htaccessContent, LOCK_EX);
         chmod($htaccess, 0640);
     }
     return true;

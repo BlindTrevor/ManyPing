@@ -31,11 +31,14 @@ if ($sessionId === false) {
 
 $logFile = __DIR__ . '/logs/' . $sessionId . '.log';
 
-// Prevent directory traversal
+// Prevent directory traversal - ensure file is within logs directory
 $logsDir = realpath(__DIR__ . '/logs');
 $requestedFile = realpath($logFile);
 
-if ($requestedFile === false || strpos($requestedFile, $logsDir) !== 0) {
+// Check that the requested file is within the logs directory
+// Using DIRECTORY_SEPARATOR to prevent partial path matches
+if ($requestedFile === false || 
+    dirname($requestedFile) !== $logsDir) {
     logSecurityEvent('PATH_TRAVERSAL', 'Attempted path traversal: ' . $sessionId);
     die('Error: Invalid log file path');
 }

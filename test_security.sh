@@ -138,11 +138,23 @@ if [ -f "$LOG_FILE" ]; then
     fi
     
     # Check log file permissions
-    PERMS=$(stat -c %a "$LOG_FILE" 2>/dev/null || stat -f %A "$LOG_FILE" 2>/dev/null)
-    if [ "$PERMS" = "640" ]; then
-        pass_test "Security log has correct permissions (640)"
+    if command -v stat >/dev/null 2>&1; then
+        # Detect OS type for stat command
+        if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "freebsd"* ]]; then
+            # BSD/macOS
+            PERMS=$(stat -f %A "$LOG_FILE" 2>/dev/null)
+        else
+            # GNU/Linux
+            PERMS=$(stat -c %a "$LOG_FILE" 2>/dev/null)
+        fi
+        
+        if [ "$PERMS" = "640" ]; then
+            pass_test "Security log has correct permissions (640)"
+        else
+            info_test "Security log permissions: $PERMS (expected 640)"
+        fi
     else
-        info_test "Security log permissions: $PERMS (expected 640)"
+        info_test "stat command not available, skipping permission check"
     fi
 else
     fail_test "Security log file not created"
