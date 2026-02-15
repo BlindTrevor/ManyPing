@@ -5,26 +5,21 @@
  * Supports streaming and session logging
  */
 
+// Security configuration
+define('MANYPING_SECURITY', true);
+require_once __DIR__ . '/security_config.php';
+
 // Configure PHP execution and session settings
 ini_set('max_execution_time', '30');
 ini_set('output_buffering', 'Off');
 ini_set('implicit_flush', '1');
 ob_implicit_flush(true);
 
-// Configure session
-ini_set('session.gc_maxlifetime', 3600);
-session_set_cookie_params(3600);
-session_start();
+// Initialize secure session
+initSecureSession();
 
-// Check session age
-if (isset($_SESSION['created']) && (time() - $_SESSION['created'] > 3600)) {
-    session_unset();
-    session_destroy();
-    session_start();
-}
-if (!isset($_SESSION['created'])) {
-    $_SESSION['created'] = time();
-}
+// Set security headers
+setSecurityHeaders();
 
 header('Content-Type: application/json');
 header('X-Accel-Buffering: no');
@@ -94,12 +89,17 @@ function pingIP($ip) {
  * Log ping result to session log
  */
 function logResult($sessionId, $result) {
+    // Sanitize session ID
+    $sessionId = sanitizeSessionId($sessionId);
+    if ($sessionId === false) {
+        error_log("Invalid session ID format");
+        return false;
+    }
+    
     $logDir = __DIR__ . '/logs';
-    if (!file_exists($logDir)) {
-        if (!mkdir($logDir, 0750, true)) {
-            error_log("Failed to create logs directory");
-            return false;
-        }
+    if (!createSecureLogDirectory($logDir)) {
+        error_log("Failed to create logs directory");
+        return false;
     }
     
     $logFile = $logDir . '/' . $sessionId . '.log';
@@ -108,13 +108,34 @@ function logResult($sessionId, $result) {
         error_log("Failed to write to log file: $logFile");
         return false;
     }
+    @chmod($logFile, LOG_FILE_PERMISSIONS);
     return true;
 }
 
 // Main execution
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        logSecurityEvent('INVALID_METHOD', 'Non-POST request to ping_single.php');
         throw new Exception('Invalid request method');
+    }
+    
+    // CSRF token validation
+    if (!isset($_POST['csrf_token']) || !validateCSRFToken($_POST['csrf_token'])) {
+        logSecurityEvent('CSRF_FAILURE', 'Invalid or missing CSRF token in ping_single');
+        throw new Exception('Invalid security token. Please refresh the page.');
+    }
+    
+    // Origin validation
+    if (!validateOrigin()) {
+        logSecurityEvent('ORIGIN_MISMATCH', 'Request origin mismatch in ping_single');
+        throw new Exception('Invalid request origin');
+    }
+    
+    // IP-based rate limiting
+    $clientIP = $_SERVER['REMOTE_ADDR'];
+    if (!checkRateLimit($clientIP)) {
+        logSecurityEvent('RATE_LIMIT_IP', "IP rate limit exceeded in ping_single: $clientIP");
+        throw new Exception('Rate limit exceeded. Please try again later.');
     }
     
     if (!isset($_POST['ip']) || empty($_POST['ip'])) {
@@ -126,7 +147,9 @@ try {
     $sessionId = isset($_POST['session_id']) ? trim($_POST['session_id']) : '';
     
     // Validate IP
-    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+    $ip = sanitizeIP($ip);
+    if ($ip === false) {
+        logSecurityEvent('INVALID_IP', "Invalid IP address submitted: " . $_POST['ip']);
         throw new Exception('Invalid IP address');
     }
     

@@ -1,3 +1,17 @@
+<?php
+// Security configuration
+define('MANYPING_SECURITY', true);
+require_once __DIR__ . '/security_config.php';
+
+// Initialize secure session
+initSecureSession();
+
+// Set security headers for HTML page
+setSecurityHeaders();
+
+// Generate CSRF token
+$csrfToken = generateCSRFToken();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -819,6 +833,9 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
+        // CSRF token
+        const CSRF_TOKEN = '<?php echo $csrfToken; ?>';
+        
         // Global state variables
         let scanInterval = null;
         let countdownInterval = null;
@@ -1284,7 +1301,7 @@ Format: IP_or_Range FriendlyName (optional, one per line)"></textarea>
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `ip=${encodeURIComponent(ip)}&name=${encodeURIComponent(name)}&session_id=${encodeURIComponent(currentSessionId)}`
+                    body: `ip=${encodeURIComponent(ip)}&name=${encodeURIComponent(name)}&session_id=${encodeURIComponent(currentSessionId)}&csrf_token=${encodeURIComponent(CSRF_TOKEN)}`
                 });
                 
                 const data = await response.json();

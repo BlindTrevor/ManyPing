@@ -6,6 +6,10 @@
  * Uses sessions for rate limiting - no persistent storage
  */
 
+// Security configuration
+define('MANYPING_SECURITY', true);
+require_once __DIR__ . '/security_config.php';
+
 // Configure PHP execution and session settings
 // Set execution time limit to allow for long-running scans
 // MAX_IPS_PER_SCAN (50) * PING_TIMEOUT (1s) = 50s minimum + overhead
@@ -20,20 +24,11 @@ ini_set('output_buffering', 'Off');
 ini_set('implicit_flush', '1');
 ob_implicit_flush(true);
 
-// Configure session to expire after 60 minutes of inactivity
-ini_set('session.gc_maxlifetime', 3600); // 60 minutes
-session_set_cookie_params(3600); // Cookie expires in 60 minutes
-session_start();
+// Initialize secure session
+initSecureSession();
 
-// Check session age and clear if needed
-if (isset($_SESSION['created']) && (time() - $_SESSION['created'] > 3600)) {
-    session_unset();
-    session_destroy();
-    session_start();
-}
-if (!isset($_SESSION['created'])) {
-    $_SESSION['created'] = time();
-}
+// Set security headers
+setSecurityHeaders();
 
 header('Content-Type: application/json');
 
@@ -88,8 +83,9 @@ function parseInput($input) {
         }
         // Single IP
         else {
-            if (filter_var($ipPart, FILTER_VALIDATE_IP)) {
-                $targets[] = ['ip' => $ipPart, 'name' => $name];
+            $sanitized = sanitizeIP($ipPart);
+            if ($sanitized !== false) {
+                $targets[] = ['ip' => $sanitized, 'name' => $name];
             }
         }
     }
@@ -220,7 +216,27 @@ function pingInBatches($targets) {
 // Main execution
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        logSecurityEvent('INVALID_METHOD', 'Non-POST request to ping.php');
         throw new Exception('Invalid request method');
+    }
+    
+    // CSRF token validation
+    if (!isset($_POST['csrf_token']) || !validateCSRFToken($_POST['csrf_token'])) {
+        logSecurityEvent('CSRF_FAILURE', 'Invalid or missing CSRF token');
+        throw new Exception('Invalid security token. Please refresh the page.');
+    }
+    
+    // Origin validation
+    if (!validateOrigin()) {
+        logSecurityEvent('ORIGIN_MISMATCH', 'Request origin mismatch');
+        throw new Exception('Invalid request origin');
+    }
+    
+    // IP-based rate limiting
+    $clientIP = $_SERVER['REMOTE_ADDR'];
+    if (!checkRateLimit($clientIP)) {
+        logSecurityEvent('RATE_LIMIT_IP', "IP rate limit exceeded: $clientIP");
+        throw new Exception('Rate limit exceeded. Please try again later.');
     }
     
     // Server-side rate limiting using sessions
@@ -229,12 +245,19 @@ try {
         $timeSinceLastScan = $currentTime - $_SESSION['last_scan_time'];
         if ($timeSinceLastScan < MIN_SCAN_INTERVAL) {
             $waitTime = MIN_SCAN_INTERVAL - $timeSinceLastScan;
+            logSecurityEvent('RATE_LIMIT_SESSION', "Session rate limit triggered");
             throw new Exception("Rate limit: Please wait {$waitTime} seconds before next scan");
         }
     }
     
     if (!isset($_POST['ips']) || empty($_POST['ips'])) {
         throw new Exception('No IPs provided');
+    }
+    
+    // Input size validation to prevent DoS
+    if (strlen($_POST['ips']) > 10000) {
+        logSecurityEvent('INPUT_TOO_LARGE', 'Input exceeds 10KB limit');
+        throw new Exception('Input too large');
     }
     
     $input = $_POST['ips'];
