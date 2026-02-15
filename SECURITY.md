@@ -103,7 +103,7 @@ initSecureSession() in security_config.php
 ```php
 $logsDir = realpath(__DIR__ . '/logs');
 $requestedFile = realpath($logFile);
-if ($requestedFile === false || strpos($requestedFile, $logsDir) !== 0) {
+if ($requestedFile === false || dirname($requestedFile) !== $logsDir) {
     die('Error: Invalid log file path');
 }
 ```

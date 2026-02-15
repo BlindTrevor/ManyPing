@@ -182,11 +182,11 @@ diff checksums_original.txt checksums_now.txt
 ### Check Rate Limit File Cleanup
 
 ```bash
-# Check temp directory for rate limit files
-ls -lah /tmp/manyping_rate_limit_*
+# Check rate limit directory for files
+ls -lah logs/rate_limits/
 
 # Clean old files (older than 2 hours)
-find /tmp -name "manyping_rate_limit_*" -mmin +120 -delete
+find logs/rate_limits -name "rate_*.dat" -mmin +120 -delete
 ```
 
 ### Monitor Log Size
